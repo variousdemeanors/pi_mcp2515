@@ -128,23 +128,13 @@ class DataLogger(threading.Thread):
             self.verbose_logger.info(f"Raw CAN data logging enabled. Output: {raw_can_log_file}")
 
     def _build_pid_list(self):
+        # CAN-only mode: treat all selected PIDs as strings (hex codes or names)
         pids = {}
         selected = self.config['pid_management']['selected_pids']
-        if obd:
-            for pid_name in selected:
-                try:
-                    if hasattr(obd.commands, pid_name):
-                        pids[pid_name] = getattr(obd.commands, pid_name)
-                except Exception:
-                    continue
-        else:
-            # If python-obd is not available, build PID list as raw hex codes
-            for pid_name in selected:
-                # Accept PID names as hex strings (e.g., '0C' for RPM)
-                pids[pid_name] = pid_name
-        if not pids:
-            if self.verbose_logger:
-                self.verbose_logger.warning("No PIDs to query. Check config and python-obd availability.")
+        for pid_name in selected:
+            pids[pid_name] = pid_name
+        if not pids and self.verbose_logger:
+            self.verbose_logger.warning("No PIDs to query. Check config.")
         return pids
 
     def connect_obd(self):
@@ -475,25 +465,8 @@ class DataLogger(threading.Thread):
                 if self.verbose_logger: self.verbose_logger.error("Failed to connect to OBD, stopping thread.")
                 return
 
-        commands_to_query = []
-        if self.connection:
-            # For python-obd connections
-            if hasattr(self.connection, "is_connected") and callable(getattr(self.connection, "is_connected", None)):
-                try:
-                    if self.connection.is_connected():
-                        supported_commands = getattr(self.connection, "supported_commands", set())
-                        if self.verbose_logger: self.verbose_logger.info(f"Vehicle supports {len(supported_commands)} commands.")
-                        pids_to_actually_query = {name: cmd for name, cmd in self.pids_to_query.items() if cmd in supported_commands}
-                        if self.verbose_logger: self.verbose_logger.info(f"Out of {len(self.pids_to_query)} selected PIDs, {len(pids_to_actually_query)} are supported by the vehicle.")
-                        if obd and hasattr(obd, 'commands') and getattr(obd.commands, 'BAROMETRIC_PRESSURE', None) in supported_commands and 'BAROMETRIC_PRESSURE' not in pids_to_actually_query:
-                            pids_to_actually_query['BAROMETRIC_PRESSURE'] = getattr(obd.commands, 'BAROMETRIC_PRESSURE')
-                            if self.verbose_logger: self.verbose_logger.info("Adding BAROMETRIC_PRESSURE to query list for boost calculation.")
-                        commands_to_query = list(pids_to_actually_query.values())
-                except Exception:
-                    commands_to_query = list(self.pids_to_query.values())
-            else:
-                # For CAN/dummy connections, just use all PIDs from config
-                commands_to_query = list(self.pids_to_query.values())
+        # CAN-only mode: always use all PIDs from config as strings
+        commands_to_query = list(self.pids_to_query.values())
 
         while self.running:
             # --- OBD-II Data Fetching ---
@@ -504,7 +477,7 @@ class DataLogger(threading.Thread):
             group_delay_ms = int(self.config['datalogging'].get('inter_group_delay_ms', 0))
 
             for grp_idx, group in enumerate(groups):
-                group_names = [cmd.name for cmd in group]
+                group_names = [str(cmd) for cmd in group]
                 if self.verbose_logger: self.verbose_logger.info(f"Querying PID group ({grp_idx+1}/{len(groups)}): {', '.join(group_names)}")
                 pids_hex = "".join([cmd.command.decode()[2:] for cmd in group])
                 command_str = f"01{pids_hex}"
@@ -531,20 +504,15 @@ class DataLogger(threading.Thread):
                 except Exception:
                     multi_cmd = None
 
+                # CAN-only mode: no query, just simulate N/A for all PIDs
                 response = None
-                if self.connection and hasattr(self.connection, "query") and callable(getattr(self.connection, "query", None)) and multi_cmd is not None:
-                    response = self.connection.query(multi_cmd, force=True)
 
                 self.data_store["pid_read_count"] = str(int(self.data_store.get("pid_read_count", "0")) + len(group))
 
-                if response and hasattr(response, "is_null") and not response.is_null():
-                    if self.verbose_logger: self.verbose_logger.info(f"Received valid response for group. Values: {getattr(response, 'value', {})}")
-                    for pid_name, pid_value in getattr(response, 'value', {}).items():
-                        self.data_store[pid_name] = str(pid_value)
-                else:
-                    if self.verbose_logger: self.verbose_logger.warning(f"Received NULL response for group: {', '.join(group_names)}")
-                    for cmd in group:
-                        self.data_store[getattr(cmd, 'name', str(cmd))] = "N/A"
+                # CAN-only mode: set all PIDs in group to N/A
+                if self.verbose_logger: self.verbose_logger.warning(f"No CAN response for group: {', '.join(group_names)}")
+                for cmd in group:
+                    self.data_store[str(cmd)] = "N/A"
 
                 # Optional inter-group delay to avoid bus saturation
                 if group_delay_ms > 0 and grp_idx < len(groups) - 1:
@@ -574,26 +542,8 @@ class DataLogger(threading.Thread):
             # --- Data Processing and Logging ---
             intake_pressure = self.data_store.get('INTAKE_PRESSURE')
             baro_pressure = self.data_store.get('BAROMETRIC_PRESSURE')
-            if self._is_quantity(intake_pressure) and self._is_quantity(baro_pressure):
-                try:
-                    boost_psi = None
-                    if (intake_pressure is not None and baro_pressure is not None and
-                        hasattr(intake_pressure, "to") and callable(getattr(intake_pressure, "to", None)) and
-                        hasattr(baro_pressure, "to") and callable(getattr(baro_pressure, "to", None))):
-                        try:
-                            boost_psi_val = intake_pressure.to("psi") - baro_pressure.to("psi")
-                            if hasattr(boost_psi_val, "magnitude"):
-                                self.data_store["Boost_Pressure_PSI"] = str(round(boost_psi_val.magnitude, 2))
-                            else:
-                                self.data_store["Boost_Pressure_PSI"] = str(boost_psi_val)
-                        except Exception:
-                            self.data_store["Boost_Pressure_PSI"] = "N/A"
-                    else:
-                        self.data_store["Boost_Pressure_PSI"] = "N/A"
-                except Exception:
-                    self.data_store["Boost_Pressure_PSI"] = "N/A"
-            else:
-                self.data_store["Boost_Pressure_PSI"] = "N/A"
+            # CAN-only: cannot calculate boost, set N/A
+            self.data_store["Boost_Pressure_PSI"] = "N/A"
 
             # --- AFR Calculations ---
             # Calculate commanded AFR from lambda (COMMANDED_EQUIV_RATIO)
@@ -614,21 +564,8 @@ class DataLogger(threading.Thread):
 
             # --- Fuel Delivery Calculations ---
             # Calculate comprehensive fuel metrics (works with MAP sensor)
-            fuel_config = self.config.get('fuel', {})
-            fuel_metrics = calculate_fuel_metrics(
-                self.data_store,
-                injector_flow_rate=fuel_config.get('injector_flow_rate', 24.0),
-                num_cylinders=fuel_config.get('num_cylinders', 4),
-                displacement=fuel_config.get('displacement', 2.0),
-                fuel_type=fuel_config.get('fuel_type', 'gasoline'),
-                ethanol_content=fuel_config.get('ethanol_content', 0),
-                injection_type=fuel_config.get('injection_type', 'port'),
-                fuel_pressure_psi=fuel_config.get('fuel_pressure_psi', 43.5),
-                high_pressure_pump_enabled=fuel_config.get('high_pressure_pump_enabled', False)
-            )
-            # Add fuel metrics to data store
-            for key, value in fuel_metrics.items():
-                self.data_store[f"Fuel_{key}"] = str(value)
+            # CAN-only: cannot calculate fuel metrics, set N/A
+            self.data_store["Fuel_Metrics"] = "N/A"
 
             if self.data_store["log_active"]:
                 try:
@@ -726,30 +663,10 @@ class DataLogger(threading.Thread):
                     baro_psi = None
                     fuel_rail_psi = None
 
-                    if (intake is not None and self._is_quantity(intake) and hasattr(intake, "to") and callable(getattr(intake, "to", None))):
-                        try:
-                            val = intake.to('psi')
-                            intake_psi = val.magnitude if hasattr(val, "magnitude") else float(val)
-                        except Exception:
-                            intake_psi = None
-                    else:
-                        intake_psi = None
-                    if (baro is not None and self._is_quantity(baro) and hasattr(baro, "to") and callable(getattr(baro, "to", None))):
-                        try:
-                            val = baro.to('psi')
-                            baro_psi = val.magnitude if hasattr(val, "magnitude") else float(val)
-                        except Exception:
-                            baro_psi = None
-                    else:
-                        baro_psi = None
-                    if (fuel_rail is not None and self._is_quantity(fuel_rail) and hasattr(fuel_rail, "to") and callable(getattr(fuel_rail, "to", None))):
-                        try:
-                            val = fuel_rail.to('psi')
-                            fuel_rail_psi = val.magnitude if hasattr(val, "magnitude") else float(val)
-                        except Exception:
-                            fuel_rail_psi = None
-                    else:
-                        fuel_rail_psi = None
+                    # CAN-only: cannot convert units, set all to N/A
+                    intake_psi = None
+                    baro_psi = None
+                    fuel_rail_psi = None
 
                     # Manifold pressure relative to atmosphere: intake - baro (positive => boost)
                     manifold_psi = None
@@ -804,28 +721,16 @@ class DataLogger(threading.Thread):
                     row_data = [timestamp]
                     # RPM
                     rpm = snapshot.get('RPM')
-                    if (rpm is not None and self._is_quantity(rpm) and hasattr(rpm, "magnitude")):
-                        row_data.append(f"{float(rpm.magnitude):.2f}")
-                    else:
-                        row_data.append(str(rpm) if rpm is not None else "N/A")
+                    row_data.append(str(rpm) if rpm is not None else "N/A")
                     # Engine Load
                     el = snapshot.get('ENGINE_LOAD')
-                    if (el is not None and self._is_quantity(el) and hasattr(el, "magnitude")):
-                        row_data.append(f"{float(el.magnitude):.2f}")
-                    else:
-                        row_data.append(str(el) if el is not None else "N/A")
+                    row_data.append(str(el) if el is not None else "N/A")
                     # Throttle
                     tp = snapshot.get('THROTTLE_POS')
-                    if (tp is not None and self._is_quantity(tp) and hasattr(tp, "magnitude")):
-                        row_data.append(f"{float(tp.magnitude):.2f}")
-                    else:
-                        row_data.append(str(tp) if tp is not None else "N/A")
+                    row_data.append(str(tp) if tp is not None else "N/A")
                     # Timing advance
                     ta = snapshot.get('TIMING_ADVANCE')
-                    if (ta is not None and self._is_quantity(ta) and hasattr(ta, "magnitude")):
-                        row_data.append(f"{float(ta.magnitude):.2f}")
-                    else:
-                        row_data.append(str(ta) if ta is not None else "N/A")
+                    row_data.append(str(ta) if ta is not None else "N/A")
                     # Existing Boost_Pressure_PSI stored in data_store
                     bp = snapshot.get('Boost_Pressure_PSI')
                     row_data.append(str(bp) if bp is not None else "N/A")
@@ -840,14 +745,8 @@ class DataLogger(threading.Thread):
                     # Fuel trims
                     sft = snapshot.get('SHORT_FUEL_TRIM_1')
                     lft = snapshot.get('LONG_FUEL_TRIM_1')
-                    if (sft is not None and self._is_quantity(sft) and hasattr(sft, "magnitude")):
-                        row_data.append(f"{float(sft.magnitude):.2f}")
-                    else:
-                        row_data.append(str(sft) if sft is not None else "N/A")
-                    if (lft is not None and self._is_quantity(lft) and hasattr(lft, "magnitude")):
-                        row_data.append(f"{float(lft.magnitude):.2f}")
-                    else:
-                        row_data.append(str(lft) if lft is not None else "N/A")
+                    row_data.append(str(sft) if sft is not None else "N/A")
+                    row_data.append(str(lft) if lft is not None else "N/A")
                     # Commanded and Measured AFR (no lambda columns)
                     row_data.append(f"{cmd_afr:.2f}" if cmd_afr is not None else "N/A")
                     row_data.append(f"{meas_afr:.2f}" if meas_afr is not None else "N/A")
@@ -897,8 +796,7 @@ class DataLogger(threading.Thread):
     def stop(self):
         if self.verbose_logger: self.verbose_logger.info("Stop method called. Shutting down...")
         self.running = False
-        if self.connection and self.connection.is_connected():
-            self.connection.close()
+        # CAN-only: no connection close needed
         self.stop_log()
         if self.verbose_logger:
             # Important to avoid issues with duplicate handlers on app restart
