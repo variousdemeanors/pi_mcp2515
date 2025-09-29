@@ -568,15 +568,14 @@ class DataLogger(threading.Thread):
             # CAN-only: cannot calculate fuel metrics, set N/A
             self.data_store["Fuel_Metrics"] = "N/A"
 
+            # --- Force imperial conversion for both live display and CSV ---
+            self.data_store = ImperialConverter.convert_data_dict(self.data_store, force_conversion=True)
+
             if self.data_store["log_active"]:
                 try:
                     # Create a copy of the data to avoid modifying the live data_store
                     logged_data = self.data_store.copy()
-                    
-                    # Apply imperial unit conversions if enabled
-                    if self.config['datalogging']['display_units'] == 'imperial':
-                        logged_data = ImperialConverter.convert_data_dict(logged_data, force_conversion=True)
-
+                    # Already converted to imperial above
                     if not self.header_written:
                         # Build explicit header list (shortened/cleaned)
                         header = [
@@ -753,8 +752,9 @@ class DataLogger(threading.Thread):
                     row_data.append(f"{meas_afr:.2f}" if meas_afr is not None else "N/A")
 
                     # Append external ESP32 keys in same order as header (use normalized names)
-                    if 'esp_normalized' not in locals():
+                    if 'esp_normalized' not in locals() or not isinstance(esp_normalized, list):
                         esp_normalized = []
+                    # Defensive: if header was written, esp_normalized is defined above; otherwise, define as empty
                     for orig, clean in esp_normalized:
                         v = snapshot.get(orig)
                         # If value is a dict (two sensors), try to map known subkeys
