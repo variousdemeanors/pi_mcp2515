@@ -479,7 +479,8 @@ class DataLogger(threading.Thread):
             for grp_idx, group in enumerate(groups):
                 group_names = [str(cmd) for cmd in group]
                 if self.verbose_logger: self.verbose_logger.info(f"Querying PID group ({grp_idx+1}/{len(groups)}): {', '.join(group_names)}")
-                pids_hex = "".join([cmd.command.decode()[2:] for cmd in group])
+                # CAN-only: just join PID strings
+                pids_hex = "".join([str(cmd) for cmd in group])
                 command_str = f"01{pids_hex}"
                 def decoder(messages):
                     return self._parse_multi_pid_response(messages, group)
