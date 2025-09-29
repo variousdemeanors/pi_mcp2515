@@ -1,0 +1,31 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h2>ESP-NOW Network Status</h2>
+<div id="espnow-status">
+  <p>Coordinator: <span id="coordinator-mac">Loading...</span></p>
+  <p>Connected peers: <span id="peer-count">0</span></p>
+  <table id="peer-table" class="table">
+    <thead><tr><th>MAC</th><th>Last Seen</th><th>RSSI</th><th>Status</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+  var socket = io();
+  socket.on('espnow_status', function(data) {
+    document.getElementById('coordinator-mac').innerText = data.coordinator_mac || 'Unknown';
+    document.getElementById('peer-count').innerText = data.peers ? data.peers.length : 0;
+    var tbody = document.querySelector('#peer-table tbody');
+    tbody.innerHTML = '';
+    if (data.peers) {
+      data.peers.forEach(function(p) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = `<td>${p.mac}</td><td>${p.last_seen}</td><td>${p.rssi}</td><td>${p.status}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  });
+</script>
+
+{% endblock %}

@@ -1,0 +1,242 @@
+{% extends "layout.html" %}
+
+{% block title %}OBD Connection Configuration{% endblock %}
+
+{% block content %}
+<div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+    <h1 class="text-2xl font-bold text-white mb-4">OBD-II Connection Configuration</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="p-3 mb-4 rounded {{ 'bg-green-500' if category == 'success' else 'bg-red-500' }} text-white">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('config_obd') }}">
+        <!-- Connection Type Selection -->
+        <div class="mb-6">
+            <label class="block text-gray-400 text-sm font-bold mb-2">Connection Type</label>
+            <div class="flex flex-col space-y-2">
+                <div class="flex items-center">
+                    <input type="radio" id="type_usb" name="type" value="usb" class="mr-2" {% if obd_config.type == 'usb' %}checked{% endif %}>
+                    <label for="type_usb" class="text-white">USB/Serial OBD Adapter</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="radio" id="type_wireless" name="type" value="wireless_can" class="mr-2" {% if obd_config.type == 'wireless_can' %}checked{% endif %}>
+                    <label for="type_wireless" class="text-white">Wireless CAN Transceiver (ESP32)</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="radio" id="type_mock" name="type" value="mock" class="mr-2" {% if obd_config.type == 'mock' %}checked{% endif %}>
+                    <label for="type_mock" class="text-white">Mock Data (Testing)</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- USB/Serial Settings -->
+        <div id="usb_settings" class="mb-6 {% if obd_config.type != 'usb' %}hidden{% endif %}">
+            <h2 class="text-xl font-semibold text-white mb-3">USB/Serial Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="port" class="block text-gray-400 text-sm font-bold mb-2">Port</label>
+                    <input type="text" id="port" name="port" value="{{ obd_config.port or '' }}" placeholder="/dev/ttyUSB0 or COM3" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+                    <p class="text-gray-500 text-xs mt-1">Leave blank for auto-detection</p>
+                </div>
+                <div>
+                    <label for="baudrate" class="block text-gray-400 text-sm font-bold mb-2">Baud Rate</label>
+                    <select id="baudrate" name="baudrate" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="9600" {% if obd_config.baudrate == 9600 %}selected{% endif %}>9600</option>
+                        <option value="38400" {% if obd_config.baudrate == 38400 %}selected{% endif %}>38400</option>
+                        <option value="115200" {% if obd_config.baudrate == 115200 %}selected{% endif %}>115200</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center">
+                    <input type="checkbox" id="fast" name="fast" {% if obd_config.fast %}checked{% endif %} class="mr-2">
+                    <label for="fast" class="text-white">Fast Mode (Skip slow initialization)</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wireless CAN Settings -->
+        <div id="wireless_settings" class="mb-6 {% if obd_config.type != 'wireless_can' %}hidden{% endif %}">
+            <h2 class="text-xl font-semibold text-white mb-3">Wireless CAN Settings</h2>
+            
+            <!-- Auto-Discovery Section -->
+            <div class="bg-gray-700 p-4 rounded mb-4">
+                <h3 class="text-lg font-semibold text-white mb-2">Auto-Discovery</h3>
+                <div class="flex space-x-4 items-center mb-4">
+                    <button type="button" id="scan-can-devices" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        🔍 Scan for CAN Devices
+                    </button>
+                    <span id="scan-status" class="text-gray-300"></span>
+                </div>
+                <div id="discovered-can-devices" class="space-y-2">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Manual Configuration -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="esp32_ip" class="block text-gray-400 text-sm font-bold mb-2">ESP32 IP Address</label>
+                    <input type="text" id="esp32_ip" name="esp32_ip" value="{{ obd_config.wireless_can.esp32_ip }}" placeholder="192.168.4.2" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div>
+                    <label for="esp32_port" class="block text-gray-400 text-sm font-bold mb-2">ESP32 Port</label>
+                    <input type="number" id="esp32_port" name="esp32_port" value="{{ obd_config.wireless_can.esp32_port }}" placeholder="5000" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                    <label for="endpoint" class="block text-gray-400 text-sm font-bold mb-2">Endpoint</label>
+                    <input type="text" id="endpoint" name="endpoint" value="{{ obd_config.wireless_can.endpoint }}" placeholder="/obd_data" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div>
+                    <label for="timeout" class="block text-gray-400 text-sm font-bold mb-2">Timeout (seconds)</label>
+                    <input type="number" id="timeout" name="timeout" value="{{ obd_config.wireless_can.timeout }}" placeholder="5" min="1" max="30" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+            </div>
+
+            <!-- Test Connection -->
+            <div class="mt-4">
+                <button type="button" id="test-connection" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                    🔧 Test Connection
+                </button>
+                <div id="test-results" class="mt-2 text-sm"></div>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="mt-6">
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                💾 Save OBD Configuration
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Show/hide settings based on connection type
+document.querySelectorAll('input[name="type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.getElementById('usb_settings').classList.add('hidden');
+        document.getElementById('wireless_settings').classList.add('hidden');
+        
+        if (this.value === 'usb') {
+            document.getElementById('usb_settings').classList.remove('hidden');
+        } else if (this.value === 'wireless_can') {
+            document.getElementById('wireless_settings').classList.remove('hidden');
+        }
+    });
+});
+
+// Scan for CAN devices
+document.getElementById('scan-can-devices').addEventListener('click', async function() {
+    const button = this;
+    const status = document.getElementById('scan-status');
+    const devicesContainer = document.getElementById('discovered-can-devices');
+    
+    button.disabled = true;
+    button.textContent = '🔍 Scanning...';
+    status.textContent = 'Scanning network for CAN devices...';
+    devicesContainer.innerHTML = '';
+    
+    try {
+        const response = await fetch('/api/scan_can_devices', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.devices.length > 0) {
+            status.textContent = `Found ${data.devices.length} CAN device(s)`;
+            
+            data.devices.forEach(device => {
+                const deviceElement = document.createElement('div');
+                deviceElement.className = 'flex items-center justify-between bg-gray-600 p-3 rounded';
+                deviceElement.innerHTML = `
+                    <div>
+                        <span class="text-white font-semibold">${device.ip}:${device.port}</span>
+                        <span class="text-gray-400 ml-2">(${device.device_type})</span>
+                    </div>
+                    <button type="button" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm" 
+                            onclick="selectDevice('${device.ip}', ${device.port}, '${device.endpoint || '/obd_data'}')">
+                        Use This Device
+                    </button>
+                `;
+                devicesContainer.appendChild(deviceElement);
+            });
+        } else {
+            status.textContent = 'No CAN devices found on network';
+            devicesContainer.innerHTML = '<p class="text-gray-400">Try manual configuration or ensure your ESP32 CAN transceiver is powered on and connected to the network.</p>';
+        }
+    } catch (error) {
+        status.textContent = 'Scan failed: ' + error.message;
+    } finally {
+        button.disabled = false;
+        button.textContent = '🔍 Scan for CAN Devices';
+    }
+});
+
+// Select a discovered device
+function selectDevice(ip, port, endpoint) {
+    document.getElementById('esp32_ip').value = ip;
+    document.getElementById('esp32_port').value = port;
+    document.getElementById('endpoint').value = endpoint;
+    
+    // Show success message
+    const testResults = document.getElementById('test-results');
+    testResults.innerHTML = '<span class="text-green-400">✅ Device selected! Click "Test Connection" to verify.</span>';
+}
+
+// Test connection
+document.getElementById('test-connection').addEventListener('click', async function() {
+    const button = this;
+    const results = document.getElementById('test-results');
+    const ip = document.getElementById('esp32_ip').value;
+    const port = document.getElementById('esp32_port').value;
+    const endpoint = document.getElementById('endpoint').value;
+    
+    if (!ip || !port) {
+        results.innerHTML = '<span class="text-red-400">❌ Please enter IP address and port</span>';
+        return;
+    }
+    
+    button.disabled = true;
+    button.textContent = '🔧 Testing...';
+    results.innerHTML = '<span class="text-yellow-400">⏳ Testing connection...</span>';
+    
+    try {
+        const response = await fetch('/api/test_can_connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ip, port: parseInt(port), endpoint })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            results.innerHTML = `<span class="text-green-400">✅ Connection successful!</span><br>
+                                <span class="text-gray-400">Device responded with: ${JSON.stringify(data.sample_data).substring(0, 100)}...</span>`;
+        } else {
+            results.innerHTML = `<span class="text-red-400">❌ Connection failed: ${data.error}</span>`;
+        }
+    } catch (error) {
+        results.innerHTML = `<span class="text-red-400">❌ Test failed: ${error.message}</span>`;
+    } finally {
+        button.disabled = false;
+        button.textContent = '🔧 Test Connection';
+    }
+});
+</script>
+{% endblock %}

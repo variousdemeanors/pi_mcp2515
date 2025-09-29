@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAN Diagnostics - OBD2 Datalogger</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-good { background-color: #4CAF50; }
+        .status-warning { background-color: #FF9800; }
+        .status-error { background-color: #F44336; }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+        .metric-value {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .btn-warning {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+        }
+        .btn-danger {
+            background: linear-gradient(45deg, #F44336, #D32F2F);
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+        }
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .recommendations {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #FFC107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .benchmark-results {
+            background: rgba(33, 150, 243, 0.1);
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        .nav-links {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 8px 16px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        #benchmark-progress {
+            display: none;
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 CAN Diagnostics & Configuration</h1>
+            <p>Real-time monitoring and performance optimization for wireless CAN/OBD2 adapter</p>
+        </div>
+
+        <div class="nav-links">
+            <a href="/">🏠 Dashboard</a>
+            <a href="/esp32_management">📡 ESP32 Management</a>
+            <a href="/analysis">📊 Analysis</a>
+            <a href="/config/network">🌐 Network Config</a>
+        </div>
+
+        <div class="grid">
+            <!-- Connection Status Card -->
+            <div class="card">
+                <h3>🔗 Connection Status</h3>
+                <div id="connection-status">
+                    <div class="metric">
+                        <span>Connection State:</span>
+                        <span class="metric-value" id="connection-state">
+                            <span class="status-indicator status-warning"></span>Checking...
+                        </span>
+                    </div>
+                    <div class="metric">
+                        <span>Adapter IP:</span>
+                        <span class="metric-value" id="adapter-ip">--</span>
+                    </div>
+                    <div class="metric">
+                        <span>Last Response:</span>
+                        <span class="metric-value" id="last-response">--</span>
+                    </div>
+                    <div class="metric">
+                        <span>Response Time:</span>
+                        <span class="metric-value" id="response-time">--</span>
+                    </div>
+                </div>
+                <button class="btn" onclick="refreshStatus()">🔄 Refresh Status</button>
+            </div>
+
+            <!-- Performance Metrics Card -->
+            <div class="card">
+                <h3>⚡ Performance Metrics</h3>
+                <div id="performance-metrics">
+                    <div class="metric">
+                        <span>PIDs per Second:</span>
+                        <span class="metric-value" id="pids-per-second">--</span>
+                    </div>
+                    <div class="metric">
+                        <span>Success Rate:</span>
+                        <span class="metric-value" id="success-rate">--</span>
+                    </div>
+                    <div class="metric">
+                        <span>Average Latency:</span>
+                        <span class="metric-value" id="avg-latency">--</span>
+                    </div>
+                    <div class="metric">
+                        <span>Total Requests:</span>
+                        <span class="metric-value" id="total-requests">--</span>
+                    </div>
+                    <div class="metric">
+                        <span>Failed Requests:</span>
+                        <span class="metric-value" id="failed-requests">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Benchmark Testing Card -->
+            <div class="card">
+                <h3>🏁 Performance Benchmark</h3>
+                <p>Test your CAN adapter's maximum throughput and latency characteristics.</p>
+                
+                <div class="form-group">
+                    <label for="benchmark-duration">Test Duration (seconds):</label>
+                    <input type="number" id="benchmark-duration" value="30" min="10" max="300">
+                </div>
+                
+                <button class="btn" onclick="startBenchmark()">🚀 Start Benchmark</button>
+                
+                <div id="benchmark-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="benchmark-progress-fill"></div>
+                    </div>
+                    <p>Running benchmark... <span id="benchmark-timer">0</span>s</p>
+                </div>
+                
+                <div id="benchmark-results-container"></div>
+            </div>
+
+            <!-- Configuration Card -->
+            <div class="card">
+                <h3>⚙️ CAN Configuration</h3>
+                <div class="form-group">
+                    <label for="polling-interval">Polling Interval (ms):</label>
+                    <input type="number" id="polling-interval" min="10" max="1000" step="10">
+                </div>
+                
+                <div class="form-group">
+                    <label for="retry-attempts">Retry Attempts:</label>
+                    <input type="number" id="retry-attempts" min="1" max="10">
+                </div>
+                
+                <div class="form-group">
+                    <label for="timeout">Timeout (ms):</label>
+                    <input type="number" id="timeout" min="100" max="5000" step="100">
+                </div>
+                
+                <button class="btn" onclick="saveConfig()">💾 Save Configuration</button>
+                <button class="btn btn-warning" onclick="loadConfig()">🔄 Reload</button>
+            </div>
+
+            <!-- Recommendations Card -->
+            <div class="card">
+                <h3>💡 Performance Recommendations</h3>
+                <div id="recommendations-container">
+                    <p>Loading recommendations...</p>
+                </div>
+                <button class="btn" onclick="getRecommendations()">🔍 Get Recommendations</button>
+            </div>
+        </div>
+
+        <!-- Real-time Chart -->
+        <div class="card">
+            <h3>📈 Real-time Performance Monitor</h3>
+            <div id="performance-chart" class="chart-container"></div>
+            <button class="btn" onclick="toggleMonitoring()" id="monitor-btn">▶️ Start Monitoring</button>
+        </div>
+    </div>
+
+    <script>
+        let socket = io();
+        let isMonitoring = false;
+        let monitoringInterval = null;
+        let performanceData = {
+            timestamps: [],
+            pids_per_second: [],
+            latency: [],
+            success_rate: []
+        };
+        let benchmarkInterval = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshStatus();
+            loadConfig();
+            getRecommendations();
+            initializeChart();
+        });
+
+        function refreshStatus() {
+            fetch('/api/can/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateStatusDisplay(data.status, data.stats);
+                    } else {
+                        console.error('Error getting status:', data.error);
+                        showConnectionError();
+                    }
+                })
+                .catch(error => {
+                    console.error('Network error:', error);
+                    showConnectionError();
+                });
+        }
+
+        function updateStatusDisplay(status, stats) {
+            const connectionState = document.getElementById('connection-state');
+            const adapterIp = document.getElementById('adapter-ip');
+            const lastResponse = document.getElementById('last-response');
+            const responseTime = document.getElementById('response-time');
+
+            // Update connection status
+            const statusIndicator = connectionState.querySelector('.status-indicator');
+            if (status.connected) {
+                statusIndicator.className = 'status-indicator status-good';
+                connectionState.innerHTML = '<span class="status-indicator status-good"></span>Connected';
+            } else {
+                statusIndicator.className = 'status-indicator status-error';
+                connectionState.innerHTML = '<span class="status-indicator status-error"></span>Disconnected';
+            }
+
+            adapterIp.textContent = status.adapter_url || '--';
+            lastResponse.textContent = status.last_response || '--';
+            responseTime.textContent = status.response_time ? `${status.response_time}ms` : '--';
+
+            // Update performance metrics
+            if (stats) {
+                document.getElementById('pids-per-second').textContent = stats.pids_per_second ? stats.pids_per_second.toFixed(1) : '--';
+                document.getElementById('success-rate').textContent = stats.success_rate ? `${(stats.success_rate * 100).toFixed(1)}%` : '--';
+                document.getElementById('avg-latency').textContent = stats.avg_latency ? `${stats.avg_latency.toFixed(0)}ms` : '--';
+                document.getElementById('total-requests').textContent = stats.total_requests || '--';
+                document.getElementById('failed-requests').textContent = stats.failed_requests || '--';
+
+                // Update real-time chart if monitoring
+                if (isMonitoring && stats.pids_per_second) {
+                    updatePerformanceChart(stats);
+                }
+            }
+        }
+
+        function showConnectionError() {
+            const connectionState = document.getElementById('connection-state');
+            connectionState.innerHTML = '<span class="status-indicator status-error"></span>Connection Error';
+            
+            // Clear metrics
+            ['adapter-ip', 'last-response', 'response-time', 'pids-per-second', 'success-rate', 'avg-latency', 'total-requests', 'failed-requests'].forEach(id => {
+                document.getElementById(id).textContent = '--';
+            });
+        }
+
+        function startBenchmark() {
+            const duration = parseInt(document.getElementById('benchmark-duration').value);
+            const progressDiv = document.getElementById('benchmark-progress');
+            const progressFill = document.getElementById('benchmark-progress-fill');
+            const timerSpan = document.getElementById('benchmark-timer');
+            
+            progressDiv.style.display = 'block';
+            progressFill.style.width = '0%';
+            
+            let elapsed = 0;
+            benchmarkInterval = setInterval(() => {
+                elapsed++;
+                timerSpan.textContent = elapsed;
+                progressFill.style.width = `${(elapsed / duration) * 100}%`;
+                
+                if (elapsed >= duration) {
+                    clearInterval(benchmarkInterval);
+                    progressDiv.style.display = 'none';
+                }
+            }, 1000);
+
+            fetch('/api/can/benchmark', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ duration: duration })
+            })
+            .then(response => response.json())
+            .then(data => {
+                clearInterval(benchmarkInterval);
+                progressDiv.style.display = 'none';
+                
+                if (data.success) {
+                    displayBenchmarkResults(data.results);
+                } else {
+                    alert('Benchmark failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                clearInterval(benchmarkInterval);
+                progressDiv.style.display = 'none';
+                alert('Benchmark error: ' + error);
+            });
+        }
+
+        function displayBenchmarkResults(results) {
+            const container = document.getElementById('benchmark-results-container');
+            container.innerHTML = `
+                <div class="benchmark-results">
+                    <h4>📊 Benchmark Results</h4>
+                    <div class="metric">
+                        <span>Peak PIDs/Second:</span>
+                        <span class="metric-value">${results.peak_pids_per_second?.toFixed(1) || '--'}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Average PIDs/Second:</span>
+                        <span class="metric-value">${results.avg_pids_per_second?.toFixed(1) || '--'}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Success Rate:</span>
+                        <span class="metric-value">${results.success_rate ? (results.success_rate * 100).toFixed(1) + '%' : '--'}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Average Latency:</span>
+                        <span class="metric-value">${results.avg_latency?.toFixed(0) || '--'}ms</span>
+                    </div>
+                    <div class="metric">
+                        <span>Total Tests:</span>
+                        <span class="metric-value">${results.total_requests || '--'}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Performance Rating:</span>
+                        <span class="metric-value">${results.performance_rating || '--'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadConfig() {
+            fetch('/api/can/config')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.config) {
+                        document.getElementById('polling-interval').value = data.config.polling_interval || 50;
+                        document.getElementById('retry-attempts').value = data.config.retry_attempts || 3;
+                        document.getElementById('timeout').value = data.config.timeout || 1000;
+                    }
+                })
+                .catch(error => console.error('Error loading config:', error));
+        }
+
+        function saveConfig() {
+            const config = {
+                polling_interval: parseInt(document.getElementById('polling-interval').value),
+                retry_attempts: parseInt(document.getElementById('retry-attempts').value),
+                timeout: parseInt(document.getElementById('timeout').value)
+            };
+
+            fetch('/api/can/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Configuration saved successfully!');
+                } else {
+                    alert('Error saving configuration: ' + data.error);
+                }
+            })
+            .catch(error => alert('Network error: ' + error));
+        }
+
+        function getRecommendations() {
+            fetch('/api/can/recommendations')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('recommendations-container');
+                    if (data.success && data.recommendations) {
+                        container.innerHTML = data.recommendations.map(rec => 
+                            `<div class="recommendations">
+                                <strong>${rec.type}:</strong> ${rec.message}
+                                ${rec.action ? `<br><em>Action: ${rec.action}</em>` : ''}
+                            </div>`
+                        ).join('');
+                    } else {
+                        container.innerHTML = '<p>No recommendations available.</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('recommendations-container').innerHTML = '<p>Error loading recommendations.</p>';
+                });
+        }
+
+        function initializeChart() {
+            const layout = {
+                title: 'Real-time Performance Metrics',
+                xaxis: { title: 'Time' },
+                yaxis: { title: 'PIDs/Second' },
+                yaxis2: {
+                    title: 'Latency (ms)',
+                    overlaying: 'y',
+                    side: 'right'
+                },
+                template: 'plotly_dark',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                height: 350
+            };
+
+            const data = [
+                {
+                    x: [],
+                    y: [],
+                    name: 'PIDs/Second',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: { color: '#4CAF50' }
+                },
+                {
+                    x: [],
+                    y: [],
+                    name: 'Latency (ms)',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    yaxis: 'y2',
+                    line: { color: '#FF9800' }
+                }
+            ];
+
+            Plotly.newPlot('performance-chart', data, layout);
+        }
+
+        function updatePerformanceChart(stats) {
+            const now = new Date();
+            performanceData.timestamps.push(now);
+            performanceData.pids_per_second.push(stats.pids_per_second || 0);
+            performanceData.latency.push(stats.avg_latency || 0);
+
+            // Keep only last 50 data points
+            if (performanceData.timestamps.length > 50) {
+                performanceData.timestamps.shift();
+                performanceData.pids_per_second.shift();
+                performanceData.latency.shift();
+            }
+
+            const update = {
+                x: [performanceData.timestamps, performanceData.timestamps],
+                y: [performanceData.pids_per_second, performanceData.latency]
+            };
+
+            Plotly.redraw('performance-chart', update);
+        }
+
+        function toggleMonitoring() {
+            const btn = document.getElementById('monitor-btn');
+            
+            if (isMonitoring) {
+                clearInterval(monitoringInterval);
+                isMonitoring = false;
+                btn.textContent = '▶️ Start Monitoring';
+            } else {
+                monitoringInterval = setInterval(refreshStatus, 2000); // Update every 2 seconds
+                isMonitoring = true;
+                btn.textContent = '⏸️ Stop Monitoring';
+            }
+        }
+
+        // Auto-refresh status every 10 seconds
+        setInterval(refreshStatus, 10000);
+    </script>
+</body>
+</html>

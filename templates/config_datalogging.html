@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+
+{% block title %}Datalogging Configuration{% endblock %}
+
+{% block content %}
+<div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+    <h1 class="text-2xl font-bold text-white mb-4">Datalogging Configuration</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="p-3 mb-4 rounded {{ 'bg-green-500' if category == 'success' else 'bg-red-500' }} text-white">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('config_datalogging') }}">
+        <div class="mb-4">
+            <label for="output_path" class="block text-gray-400 text-sm font-bold mb-2">Output Path</label>
+            <input type="text" id="output_path" name="output_path" value="{{ datalogging_config.output_path }}" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-4">
+            <label for="custom_filename" class="block text-gray-400 text-sm font-bold mb-2">Custom Filename (optional)</label>
+            <input type="text" id="custom_filename" name="custom_filename" value="{{ datalogging_config.custom_filename or '' }}" placeholder="Default: %Y-%m-%d_%H-%M-%S_datalog.csv" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+            <p class="text-gray-500 text-xs mt-1">Leave blank for default timestamp-based naming. You can use Python strftime codes.</p>
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-gray-400 text-sm font-bold mb-2">Log Rotation Policy</label>
+            <select id="log_rotation" name="log_rotation" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+                <option value="per_session" {% if datalogging_config.log_rotation == 'per_session' %}selected{% endif %}>New File Per Session</option>
+                <option value="static" {% if datalogging_config.log_rotation == 'static' %}selected{% endif %}>Append to Single File</option>
+            </select>
+        </div>
+
+        <div class="mt-6">
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Save Datalogging Settings
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

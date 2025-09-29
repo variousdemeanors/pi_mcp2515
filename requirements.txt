@@ -1,0 +1,23 @@
+# Core Flask web framework
+flask>=2.0.0
+flask-socketio>=5.0.0
+
+# Web server and async support  
+eventlet>=0.30.0
+
+# Data processing and visualization
+pandas>=1.3.0
+plotly>=5.0.0
+
+# HTTP requests and system info
+requests>=2.25.0
+psutil>=5.8.0
+
+# Network interface information
+netifaces>=0.11.0
+
+# OBD-II communication
+obd>=0.7.0
+
+# Security
+werkzeug>=2.0.0

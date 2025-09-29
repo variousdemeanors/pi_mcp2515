@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+
+{% block title %}Network Configuration{% endblock %}
+
+{% block content %}
+<div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+    <h1 class="text-2xl font-bold text-white mb-4">Network Configuration</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="p-3 mb-4 rounded {{ 'bg-green-500' if category == 'success' else 'bg-red-500' }} text-white">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('config_network') }}">
+        <div class="mb-6">
+            <label class="block text-gray-400 text-sm font-bold mb-2">Network Mode</label>
+            <div class="flex items-center">
+                <input type="radio" id="mode_ap" name="mode" value="AP" class="mr-2" {% if network_config.mode == 'AP' %}checked{% endif %}>
+                <label for="mode_ap" class="mr-6 text-white">Wi-Fi Access Point (AP)</label>
+                <input type="radio" id="mode_client" name="mode" value="Client" class="mr-2" {% if network_config.mode == 'Client' %}checked{% endif %}>
+                <label for="mode_client" class="text-white">Client (Connect to existing Wi-Fi)</label>
+            </div>
+        </div>
+
+        <div id="ap_settings" class="{% if network_config.mode != 'AP' %}hidden{% endif %}">
+            <h2 class="text-xl font-semibold text-white mb-3">AP Settings</h2>
+            <div class="mb-4">
+                <label for="ap_ssid" class="block text-gray-400 text-sm font-bold mb-2">AP SSID</label>
+                <input type="text" id="ap_ssid" name="ap_ssid" value="{{ network_config.ap_ssid }}" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label for="ap_password" class="block text-gray-400 text-sm font-bold mb-2">AP Password</label>
+                <input type="password" id="ap_password" name="ap_password" value="{{ network_config.ap_password }}" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+        </div>
+
+        <div id="client_settings" class="{% if network_config.mode != 'Client' %}hidden{% endif %}">
+            <h2 class="text-xl font-semibold text-white mb-3">Client Settings</h2>
+            <div class="mb-4">
+                <label for="client_ssid" class="block text-gray-400 text-sm font-bold mb-2">Client SSID</label>
+                <input type="text" id="client_ssid" name="client_ssid" value="{{ network_config.client_ssid }}" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label for="client_password" class="block text-gray-400 text-sm font-bold mb-2">Client Password</label>
+                <input type="password" id="client_password" name="client_password" value="{{ network_config.client_password }}" class="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+        </div>
+
+        <div class="mt-6">
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Save Network Settings
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'AP') {
+                document.getElementById('ap_settings').classList.remove('hidden');
+                document.getElementById('client_settings').classList.add('hidden');
+            } else {
+                document.getElementById('ap_settings').classList.add('hidden');
+                document.getElementById('client_settings').classList.remove('hidden');
+            }
+        });
+    });
+</script>
+{% endblock %}

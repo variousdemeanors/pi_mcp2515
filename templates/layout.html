@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OBD-II Dashboard{% endblock %}</title>
+
+    <!-- External Libraries -->
+    <script src="{{ url_for('static', filename='vendor/tailwindcss.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/socket.io.js') }}"></script>
+
+    <!-- Local Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="p-4">
+    <div class="container mx-auto">
+        <nav class="bg-gray-800 rounded-lg p-4 mb-6 flex justify-between items-center">
+            <div>
+                <a href="{{ url_for('index') }}" class="text-white font-bold text-xl">OBD-II Dashboard</a>
+            </div>
+            <div>
+                <a href="{{ url_for('index') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Live View</a>
+                <a href="{{ url_for('can_diagnostics') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">CAN Diagnostics</a>
+                <a href="{{ url_for('esp32_management') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">ESP32</a>
+                <a href="{{ url_for('config_obd') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">OBD Connection</a>
+                <a href="{{ url_for('config_network') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Network</a>
+                    <a href="{{ url_for('espnow_status') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">ESP-NOW Status</a>
+                <a href="{{ url_for('config_datalogging') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Datalogging</a>
+                <a href="{{ url_for('config_pids') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">PIDs</a>
+                <a href="{{ url_for('config_fuel') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Fuel</a>
+                <a href="{{ url_for('analysis') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Analysis</a>
+                <a href="{{ url_for('logout') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Logout</a>
+            </div>
+        </nav>
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

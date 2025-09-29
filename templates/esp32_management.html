@@ -1,0 +1,130 @@
+{% extends "layout.html" %}
+
+{% block title %}ESP32 Sensor Management{% endblock %}
+
+{% block content %}
+<div class="bg-gray-800 p-6 rounded-lg mb-6">
+    <h2 class="text-2xl font-bold text-white mb-4">ESP32 Sensor Network Management</h2>
+    
+    <!-- Network Scanning Section -->
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold text-white mb-3">Network Discovery</h3>
+        <div class="flex space-x-4 items-center mb-4">
+            <button id="scan-network" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Scan Network
+            </button>
+            <span id="scan-status" class="text-gray-300"></span>
+        </div>
+        
+        <!-- Discovered Devices -->
+        <div id="discovered-devices" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <!-- Will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Configured Sensors Section -->
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold text-white mb-3">Configured Sensors</h3>
+        <div id="configured-sensors" class="space-y-4">
+            <!-- Will be populated by JavaScript -->
+        </div>
+        
+        <!-- Add Manual Sensor -->
+        <div class="mt-4 p-4 bg-gray-700 rounded">
+            <h4 class="text-white font-semibold mb-2">Add Sensor Manually</h4>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <input type="text" id="manual-name" placeholder="Sensor Name" class="px-3 py-2 bg-gray-600 text-white rounded">
+                <input type="text" id="manual-url" placeholder="http://192.168.4.100/data" class="px-3 py-2 bg-gray-600 text-white rounded">
+                <select id="manual-type" class="px-3 py-2 bg-gray-600 text-white rounded">
+                    <option value="pressure">Pressure (PSI)</option>
+                    <option value="temperature">Temperature (°F)</option>
+                    <option value="voltage">Voltage (V)</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <button id="add-manual" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                    Add Sensor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- WiFi Status Section -->
+<div class="bg-gray-800 p-6 rounded-lg">
+    <h2 class="text-2xl font-bold text-white mb-4">WiFi Network Status</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Network Info -->
+        <div>
+            <h3 class="text-lg font-semibold text-white mb-3">Network Information</h3>
+            <div id="network-info" class="bg-gray-700 p-4 rounded">
+                <div class="space-y-2 text-sm">
+                    <div><span class="text-gray-300">Mode:</span> <span id="wifi-mode" class="text-white">Loading...</span></div>
+                    <div><span class="text-gray-300">SSID:</span> <span id="wifi-ssid" class="text-white">Loading...</span></div>
+                    <div><span class="text-gray-300">IP Address:</span> <span id="wifi-ip" class="text-white">Loading...</span></div>
+                    <div><span class="text-gray-300">Connected Clients:</span> <span id="client-count" class="text-white">Loading...</span></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Connected Clients -->
+        <div>
+            <h3 class="text-lg font-semibold text-white mb-3">Connected Devices</h3>
+            <div id="connected-clients" class="bg-gray-700 p-4 rounded">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Network Controls -->
+    <div class="mt-6 flex space-x-4">
+        <button id="refresh-clients" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Refresh Network Info
+        </button>
+        <button id="reboot-network" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+            Restart Network Service
+        </button>
+    </div>
+</div>
+
+<!-- Sensor Data Modal -->
+<div id="sensor-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-lg w-full mx-4">
+        <h3 class="text-lg font-bold text-white mb-4">Sensor Configuration</h3>
+        <div id="modal-content">
+            <!-- Dynamic content -->
+        </div>
+        <div class="mt-4 flex space-x-4">
+            <button id="save-sensor" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                Save
+            </button>
+            <button id="close-modal" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/esp32_management.js') }}"></script>
+<!-- Live Monitor Modal -->
+<div id="monitor-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-lg font-bold text-white">Live Sensor Monitor</h3>
+            <button id="close-monitor" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded">Close</button>
+        </div>
+        <div class="text-gray-300 text-sm mb-2">URL: <span id="monitor-url" class="text-white"></span></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <h4 class="text-white font-semibold mb-2">Latest JSON</h4>
+                <pre id="monitor-json" class="bg-gray-700 p-3 rounded text-xs text-gray-200 overflow-auto max-h-64">Waiting...</pre>
+            </div>
+            <div>
+                <h4 class="text-white font-semibold mb-2">Parsed Values</h4>
+                <div id="monitor-values" class="bg-gray-700 p-3 rounded text-sm text-gray-200 space-y-1"></div>
+            </div>
+        </div>
+        <div class="mt-3 text-gray-400 text-xs">Last updated: <span id="monitor-updated">—</span></div>
+    </div>
+    </div>
+{% endblock %}
