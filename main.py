@@ -595,8 +595,15 @@ def start_datalogger(app_config):
 
             current_time = time.time()
             delta_time = current_time - last_time
-            current_count = logger.data_store.get("pid_read_count", 0)
-            delta_count = current_count - last_count
+            try:
+                current_count = int(logger.data_store.get("pid_read_count", 0))
+            except (ValueError, TypeError):
+                current_count = 0
+            try:
+                last_count_int = int(last_count)
+            except (ValueError, TypeError):
+                last_count_int = 0
+            delta_count = current_count - last_count_int
 
             rate = (delta_count / delta_time) if delta_time > 0 else 0
 
@@ -623,26 +630,8 @@ def start_datalogger(app_config):
                 val1 = logger.data_store.get(key1)
                 display_key1 = key1.replace('_', ' ').title()
 
-                # Duck-typed Quantity detection to avoid importing python-obd at module import time
-                if hasattr(val1, 'magnitude') and hasattr(val1, 'units'):
-                    is_imperial = app_config['datalogging']['display_units'] == 'imperial'
-                    try:
-                        if is_imperial and hasattr(val1, 'to'):
-                            if str(val1.units) == 'kilopascal': val1 = val1.to('psi')
-                            elif str(val1.units) == 'celsius': val1 = val1.to('fahrenheit')
-                    except Exception:
-                        # If conversion fails, fall back to raw representation
-                        pass
-
-                    try:
-                        if is_imperial and str(val1.units) in ['psi', 'fahrenheit']:
-                            val1_str = f"{val1.magnitude:.2f}"
-                        else:
-                            val1_str = f"{val1.magnitude:.2f} {val1.units}"
-                    except Exception:
-                        val1_str = str(val1)
-                else:
-                    val1_str = str(val1)
+                # CAN-only: always display as string
+                val1_str = str(val1)
                 term1 = f"{display_key1.ljust(25)}: {val1_str.ljust(20)}"
 
                 # --- Column 2 ---
@@ -652,24 +641,8 @@ def start_datalogger(app_config):
                     val2 = logger.data_store.get(key2)
                     display_key2 = key2.replace('_', ' ').title()
 
-                    if hasattr(val2, 'magnitude') and hasattr(val2, 'units'):
-                        is_imperial = app_config['datalogging']['display_units'] == 'imperial'
-                        try:
-                            if is_imperial and hasattr(val2, 'to'):
-                                if str(val2.units) == 'kilopascal': val2 = val2.to('psi')
-                                elif str(val2.units) == 'celsius': val2 = val2.to('fahrenheit')
-                        except Exception:
-                            pass
-
-                        try:
-                            if is_imperial and str(val2.units) in ['psi', 'fahrenheit']:
-                                val2_str = f"{val2.magnitude:.2f}"
-                            else:
-                                val2_str = f"{val2.magnitude:.2f} {val2.units}"
-                        except Exception:
-                            val2_str = str(val2)
-                    else:
-                        val2_str = str(val2)
+                    # CAN-only: always display as string
+                    val2_str = str(val2)
                     term2 = f"{display_key2.ljust(25)}: {val2_str}"
 
                 print(term1 + term2)
