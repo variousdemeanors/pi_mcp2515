@@ -129,14 +129,22 @@ class DataLogger(threading.Thread):
 
     def _build_pid_list(self):
         pids = {}
-        for pid_name in self.config['pid_management']['selected_pids']:
-            # Guard access to python-obd command definitions
-            try:
-                if obd and hasattr(obd.commands, pid_name):
-                    pids[pid_name] = getattr(obd.commands, pid_name)
-            except Exception:
-                # If obd is not available or commands missing, skip
-                continue
+        selected = self.config['pid_management']['selected_pids']
+        if obd:
+            for pid_name in selected:
+                try:
+                    if hasattr(obd.commands, pid_name):
+                        pids[pid_name] = getattr(obd.commands, pid_name)
+                except Exception:
+                    continue
+        else:
+            # If python-obd is not available, build PID list as raw hex codes
+            for pid_name in selected:
+                # Accept PID names as hex strings (e.g., '0C' for RPM)
+                pids[pid_name] = pid_name
+        if not pids:
+            if self.verbose_logger:
+                self.verbose_logger.warning("No PIDs to query. Check config and python-obd availability.")
         return pids
 
     def connect_obd(self):
@@ -152,127 +160,97 @@ class DataLogger(threading.Thread):
 
             connection_type = conn_config.get('type')
 
-            # If system is configured to use a local MCP2515 SPI CAN controller
-            # (socketcan `can0`), the hub process handles CAN access. The
-            # datalogger should not attempt to open a serial/USB OBD adapter
-            # in that case; run in 'external-sensors-only' mode and let the
-            # hub populate CAN data via shared mechanisms.
             if connection_type == 'local_mcp2515':
                 self.data_store["connection_status"] = "Using local MCP2515 (hub-managed CAN)"
                 if self.verbose_logger: self.verbose_logger.info("Configured for local MCP2515; skipping direct OBD serial connection by default.")
-                # Optionally, allow datalogger to open socketcan directly when
-                # the user explicitly enables it in config: datalogger.open_socketcan_if_local
                 open_socketcan = self.config.get('datalogger', {}).get('open_socketcan_if_local', False)
-                if not open_socketcan:
-                    # Return False so caller continues in allow_no_obd mode
-                    return False
-                # Attempt to open socketcan using python-can (lazy import)
-                try:
-                    import can as _can
-                except Exception:
-                    self.data_store["connection_status"] = "Error: python-can not available; cannot open socketcan"
-                    if self.verbose_logger: self.verbose_logger.error("python-can not available; cannot open socketcan")
-                    return False
-
-                try:
-                    bus = _can.interface.Bus(channel='can0', bustype='socketcan')
-                    # Store bus-like object in self.connection for downstream use
-                    self.connection = bus
-                    self.data_store["connection_status"] = "SocketCAN opened on can0"
-                    if self.verbose_logger: self.verbose_logger.info("Opened socketcan can0 for direct OBD queries.")
+                if open_socketcan:
+                    try:
+                        import can as _can
+                        bus = _can.interface.Bus(channel='can0', bustype='socketcan')
+                        self.connection = bus
+                        self.data_store["connection_status"] = "SocketCAN opened on can0"
+                        if self.verbose_logger: self.verbose_logger.info("Opened socketcan can0 for direct OBD queries.")
+                        return True
+                    except Exception as e:
+                        self.data_store["connection_status"] = f"SocketCAN open failed: {e}"
+                        if self.verbose_logger: self.verbose_logger.exception("Failed to open socketcan can0")
+                        return False
+                else:
+                    # Always set self.connection to a dummy object for hub-managed CAN
+                    self.connection = object()  # Dummy connection to indicate CAN mode
                     return True
-                except Exception as e:
-                    self.data_store["connection_status"] = f"SocketCAN open failed: {e}"
-                    if self.verbose_logger: self.verbose_logger.exception("Failed to open socketcan can0")
-                    return False
-            
-            # Handle wireless CAN connection via Acebott ESP32
+
             if connection_type == 'wireless_can':
                 print("🌐 Attempting to connect via Acebott ESP32 Wireless CAN adapter...")
                 if self.verbose_logger: self.verbose_logger.info("Using wireless CAN connection via Acebott ESP32")
-                
                 wireless_conn = create_wireless_obd_connection(self.config)
-                if not wireless_conn:
-                    self.data_store["connection_status"] = "Error: Wireless CAN configuration invalid."
-                    print("❌ Wireless CAN configuration invalid. Check config.json")
-                    return False
-                
-                if wireless_conn.start():
+                if wireless_conn and wireless_conn.start():
                     self.connection = wireless_conn
                     self.data_store["connection_status"] = "Successfully connected via Acebott ESP32."
                     print("✅ Successfully connected to vehicle via Acebott ESP32!")
                     if self.verbose_logger: self.verbose_logger.info("Wireless CAN connection established successfully.")
                     return True
                 else:
+                    self.connection = object()  # Dummy connection to indicate CAN mode
                     self.data_store["connection_status"] = "Wireless CAN connection failed."
                     print("❌ Could not connect to Acebott ESP32. Check WiFi and ESP32 status.")
                     if self.verbose_logger: self.verbose_logger.error("Wireless CAN connection failed.")
                     return False
-            
+
             # Handle traditional USB/Bluetooth connections
+            if not obd:
+                self.data_store["connection_status"] = "Error: python-obd not installed; serial adapters disabled."
+                if self.verbose_logger: self.verbose_logger.error("python-obd not available; cannot open serial OBD adapter.")
+                self.connection = None
+                return False
+
+            port = conn_config.get('port')
+            baud = conn_config.get('baudrate')
+            fast = conn_config.get('fast', False)
+
+            if not baud:
+                self.data_store["connection_status"] = "Error: Baud rate not configured in config.json."
+                print("CRITICAL: Baud rate not configured. Please run 'python3 setup.py' again.")
+                if self.verbose_logger: self.verbose_logger.critical("Baud rate is not configured.")
+                return False
+
+            msg1 = f"Attempting to connect via {connection_type} on port '{port or 'auto-scan'}'..."
+            msg2 = f"Connection settings: port='{port or 'auto-scan'}', baudrate={baud}, fast={fast}"
+            if self.verbose_logger:
+                self.verbose_logger.info(msg1)
+                self.verbose_logger.info(msg2)
             else:
-                # Serial/USB/Bluetooth connections require python-obd. If it's not
-                # installed or available, return False rather than attempting
-                # an auto-scan which can be noisy on embedded systems.
-                if not obd:
-                    self.data_store["connection_status"] = "Error: python-obd not installed; serial adapters disabled."
-                    if self.verbose_logger: self.verbose_logger.error("python-obd not available; cannot open serial OBD adapter.")
-                    return False
+                if os.isatty(0):
+                    print(msg1)
+                    print(msg2)
 
-                port = conn_config.get('port')
-                baud = conn_config.get('baudrate')
-                fast = conn_config.get('fast', False)
-
-                if not baud:
-                    self.data_store["connection_status"] = "Error: Baud rate not configured in config.json."
-                    print("CRITICAL: Baud rate not configured. Please run 'python3 setup.py' again.")
-                    if self.verbose_logger: self.verbose_logger.critical("Baud rate is not configured.")
-                    return False
-
-                msg1 = f"Attempting to connect via {connection_type} on port '{port or 'auto-scan'}'..."
-                msg2 = f"Connection settings: port='{port or 'auto-scan'}', baudrate={baud}, fast={fast}"
-                if self.verbose_logger:
-                    self.verbose_logger.info(msg1)
-                    self.verbose_logger.info(msg2)
-                else:
-                    # Avoid noisy stdout on embedded services; only print when interactive
-                    if os.isatty(0):
-                        print(msg1)
-                        print(msg2)
-
-                # Lazy import: ensure python-obd is available at the point we
-                # actually need to open a serial connection. If it's missing,
-                # return False rather than attempting an auto-scan.
-                try:
-                    import obd as _obd
-                except Exception:
-                    self.data_store["connection_status"] = "Error: python-obd not available at connect time."
-                    if self.verbose_logger: self.verbose_logger.error("python-obd import failed during connect_obd().")
-                    return False
-
+            try:
+                import obd as _obd
                 if not port:
                     self.connection = _obd.OBD(baudrate=baud, fast=fast)
                 else:
                     self.connection = _obd.OBD(port, baudrate=baud, fast=fast)
-
                 if not self.connection.is_connected():
                     self.data_store["connection_status"] = "Connection failed."
                     print("Error: Could not connect to the OBD-II adapter.")
                     if self.verbose_logger: self.verbose_logger.error("self.connection.is_connected() returned False.")
                     return False
-
                 self.data_store["connection_status"] = "Successfully connected."
                 print("Successfully connected to the vehicle.")
                 if self.verbose_logger: self.verbose_logger.info("Successfully connected to vehicle.")
                 return True
-                
-        except Exception as e:
-            self.data_store["connection_status"] = f"Connection error: {e}"
-            print(f"An unexpected error occurred during OBD connection: {e}")
+            except Exception as e:
+                self.data_store["connection_status"] = f"Connection error: {e}"
+                print(f"An unexpected error occurred during OBD connection: {e}")
+                if self.verbose_logger: self.verbose_logger.exception("An exception occurred during OBD connection.")
+                self.connection = None
+                return False
         except Exception as e:
             self.data_store["connection_status"] = f"Connection error: {e}"
             print(f"An unexpected error occurred during OBD connection: {e}")
             if self.verbose_logger: self.verbose_logger.exception("An exception occurred during OBD connection.")
+            self.connection = None
             return False
 
     def fetch_external_sensor_data(self):
@@ -321,11 +299,11 @@ class DataLogger(threading.Thread):
             self.log_file = open(full_path, mode='w', newline='')
             self.csv_writer = csv.writer(self.log_file)
             self.header_written = False
-            self.data_store["log_active"] = True
+            self.data_store["log_active"] = "True"
             self.data_store["log_file_name"] = full_path
             if self.verbose_logger: self.verbose_logger.info(f"Datalogger started. Saving to: {full_path}")
         except Exception as e:
-            self.data_store["log_active"] = False
+            self.data_store["log_active"] = "False"
             print(f"Error starting log: {e}")
             if self.verbose_logger: self.verbose_logger.exception("Failed to start log file.")
 
@@ -334,9 +312,10 @@ class DataLogger(threading.Thread):
             return
         if self.log_file:
             self.log_file.close()
-        self.data_store["log_active"] = False
-        self.data_store["last_stop_time"] = datetime.now()
-        if self.verbose_logger: self.verbose_logger.info("Datalogger stopped.")
+        self.data_store["log_active"] = "False"
+        self.data_store["last_stop_time"] = str(datetime.now())
+        if self.verbose_logger:
+            self.verbose_logger.info("Datalogger stopped.")
 
     def _generate_mock_data(self):
         """Generate realistic mock OBD data for testing/demo purposes."""
@@ -496,28 +475,32 @@ class DataLogger(threading.Thread):
                 if self.verbose_logger: self.verbose_logger.error("Failed to connect to OBD, stopping thread.")
                 return
 
-        if self.connection and self.connection.is_connected():
-            supported_commands = self.connection.supported_commands
-            if self.verbose_logger: self.verbose_logger.info(f"Vehicle supports {len(supported_commands)} commands.")
-            pids_to_actually_query = {name: cmd for name, cmd in self.pids_to_query.items() if cmd in supported_commands}
-            if self.verbose_logger: self.verbose_logger.info(f"Out of {len(self.pids_to_query)} selected PIDs, {len(pids_to_actually_query)} are supported by the vehicle.")
-            
-            # If python-obd is available and the vehicle supports barometric
-            # pressure, add it to queries so we can calculate boost.
-            if obd and hasattr(obd, 'commands') and getattr(obd.commands, 'BAROMETRIC_PRESSURE', None) in supported_commands and 'BAROMETRIC_PRESSURE' not in pids_to_actually_query:
-                pids_to_actually_query['BAROMETRIC_PRESSURE'] = getattr(obd.commands, 'BAROMETRIC_PRESSURE')
-                if self.verbose_logger: self.verbose_logger.info("Adding BAROMETRIC_PRESSURE to query list for boost calculation.")
-            commands_to_query = list(pids_to_actually_query.values())
-        else:
-            supported_commands = set()
-            commands_to_query = []
+        commands_to_query = []
+        if self.connection:
+            # For python-obd connections
+            if hasattr(self.connection, "is_connected") and callable(getattr(self.connection, "is_connected", None)):
+                try:
+                    if self.connection.is_connected():
+                        supported_commands = getattr(self.connection, "supported_commands", set())
+                        if self.verbose_logger: self.verbose_logger.info(f"Vehicle supports {len(supported_commands)} commands.")
+                        pids_to_actually_query = {name: cmd for name, cmd in self.pids_to_query.items() if cmd in supported_commands}
+                        if self.verbose_logger: self.verbose_logger.info(f"Out of {len(self.pids_to_query)} selected PIDs, {len(pids_to_actually_query)} are supported by the vehicle.")
+                        if obd and hasattr(obd, 'commands') and getattr(obd.commands, 'BAROMETRIC_PRESSURE', None) in supported_commands and 'BAROMETRIC_PRESSURE' not in pids_to_actually_query:
+                            pids_to_actually_query['BAROMETRIC_PRESSURE'] = getattr(obd.commands, 'BAROMETRIC_PRESSURE')
+                            if self.verbose_logger: self.verbose_logger.info("Adding BAROMETRIC_PRESSURE to query list for boost calculation.")
+                        commands_to_query = list(pids_to_actually_query.values())
+                except Exception:
+                    commands_to_query = list(self.pids_to_query.values())
+            else:
+                # For CAN/dummy connections, just use all PIDs from config
+                commands_to_query = list(self.pids_to_query.values())
 
         while self.running:
             # --- OBD-II Data Fetching ---
             interval_ms = int(self.config['datalogging'].get('logging_interval_ms', 100))
             cycle_start = time.time()
             groups = list(self.chunker(commands_to_query, 6))
-            self.data_store['pid_groups_per_cycle'] = len(groups)
+            self.data_store['pid_groups_per_cycle'] = str(len(groups))
             group_delay_ms = int(self.config['datalogging'].get('inter_group_delay_ms', 0))
 
             for grp_idx, group in enumerate(groups):
@@ -548,18 +531,20 @@ class DataLogger(threading.Thread):
                 except Exception:
                     multi_cmd = None
 
-                response = self.connection.query(multi_cmd, force=True) if (self.connection and multi_cmd is not None) else None
+                response = None
+                if self.connection and hasattr(self.connection, "query") and callable(getattr(self.connection, "query", None)) and multi_cmd is not None:
+                    response = self.connection.query(multi_cmd, force=True)
 
-                self.data_store["pid_read_count"] += len(group)
+                self.data_store["pid_read_count"] = str(int(self.data_store.get("pid_read_count", "0")) + len(group))
 
-                if response and not response.is_null():
-                    if self.verbose_logger: self.verbose_logger.info(f"Received valid response for group. Values: {response.value}")
-                    for pid_name, pid_value in response.value.items():
-                        self.data_store[pid_name] = pid_value
+                if response and hasattr(response, "is_null") and not response.is_null():
+                    if self.verbose_logger: self.verbose_logger.info(f"Received valid response for group. Values: {getattr(response, 'value', {})}")
+                    for pid_name, pid_value in getattr(response, 'value', {}).items():
+                        self.data_store[pid_name] = str(pid_value)
                 else:
                     if self.verbose_logger: self.verbose_logger.warning(f"Received NULL response for group: {', '.join(group_names)}")
                     for cmd in group:
-                        self.data_store[cmd.name] = "N/A"
+                        self.data_store[getattr(cmd, 'name', str(cmd))] = "N/A"
 
                 # Optional inter-group delay to avoid bus saturation
                 if group_delay_ms > 0 and grp_idx < len(groups) - 1:
@@ -567,7 +552,7 @@ class DataLogger(threading.Thread):
 
             cycle_end = time.time()
             cycle_ms = (cycle_end - cycle_start) * 1000.0
-            self.data_store['last_cycle_duration_ms'] = round(cycle_ms, 2)
+            self.data_store['last_cycle_duration_ms'] = str(round(cycle_ms, 2))
 
             # Warn if cycle took longer than configured interval
             if cycle_ms > interval_ms:
@@ -576,10 +561,10 @@ class DataLogger(threading.Thread):
                 else: print(warn_msg)
             
             # --- Mock Data Generation (for testing/demo) ---
-            if self.mock_data_mode and (not self.connection or not self.connection.is_connected()):
+            if self.mock_data_mode and (not self.connection or not (hasattr(self.connection, "is_connected") and callable(getattr(self.connection, "is_connected", None)) and self.connection.is_connected())):
                 mock_data = self._generate_mock_data()
                 for pid_name, mock_value in mock_data.items():
-                    self.data_store[pid_name] = mock_value
+                    self.data_store[pid_name] = str(mock_value)
                 if self.verbose_logger: 
                     self.verbose_logger.info(f"Generated mock data: RPM={mock_data.get('RPM', 'N/A')}")
 
@@ -591,8 +576,20 @@ class DataLogger(threading.Thread):
             baro_pressure = self.data_store.get('BAROMETRIC_PRESSURE')
             if self._is_quantity(intake_pressure) and self._is_quantity(baro_pressure):
                 try:
-                    boost_psi = intake_pressure.to("psi") - baro_pressure.to("psi")
-                    self.data_store["Boost_Pressure_PSI"] = f"{boost_psi.magnitude:.2f}"
+                    boost_psi = None
+                    if (intake_pressure is not None and baro_pressure is not None and
+                        hasattr(intake_pressure, "to") and callable(getattr(intake_pressure, "to", None)) and
+                        hasattr(baro_pressure, "to") and callable(getattr(baro_pressure, "to", None))):
+                        try:
+                            boost_psi_val = intake_pressure.to("psi") - baro_pressure.to("psi")
+                            if hasattr(boost_psi_val, "magnitude"):
+                                self.data_store["Boost_Pressure_PSI"] = str(round(boost_psi_val.magnitude, 2))
+                            else:
+                                self.data_store["Boost_Pressure_PSI"] = str(boost_psi_val)
+                        except Exception:
+                            self.data_store["Boost_Pressure_PSI"] = "N/A"
+                    else:
+                        self.data_store["Boost_Pressure_PSI"] = "N/A"
                 except Exception:
                     self.data_store["Boost_Pressure_PSI"] = "N/A"
             else:
@@ -603,7 +600,7 @@ class DataLogger(threading.Thread):
             commanded_lambda = self.data_store.get('COMMANDED_EQUIV_RATIO')
             if commanded_lambda:
                 commanded_afr = calculate_afr_from_lambda(commanded_lambda)
-                self.data_store["Commanded_AFR"] = commanded_afr
+                self.data_store["Commanded_AFR"] = str(commanded_afr)
             else:
                 self.data_store["Commanded_AFR"] = "N/A"
 
@@ -611,7 +608,7 @@ class DataLogger(threading.Thread):
             o2_current = self.data_store.get('O2_S1_WR_CURRENT')
             if o2_current:
                 measured_afr = calculate_afr_from_wideband_o2(o2_current)
-                self.data_store["Measured_AFR"] = measured_afr
+                self.data_store["Measured_AFR"] = str(measured_afr)
             else:
                 self.data_store["Measured_AFR"] = "N/A"
 
@@ -629,10 +626,9 @@ class DataLogger(threading.Thread):
                 fuel_pressure_psi=fuel_config.get('fuel_pressure_psi', 43.5),
                 high_pressure_pump_enabled=fuel_config.get('high_pressure_pump_enabled', False)
             )
-            
             # Add fuel metrics to data store
             for key, value in fuel_metrics.items():
-                self.data_store[f"Fuel_{key}"] = value
+                self.data_store[f"Fuel_{key}"] = str(value)
 
             if self.data_store["log_active"]:
                 try:
@@ -703,8 +699,9 @@ class DataLogger(threading.Thread):
                         for orig, clean in esp_normalized:
                             header.append(clean)
 
-                        self.csv_writer.writerow(header)
-                        self.header_written = True
+                        if self.csv_writer:
+                            self.csv_writer.writerow(header)
+                            self.header_written = True
 
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
@@ -729,21 +726,30 @@ class DataLogger(threading.Thread):
                     baro_psi = None
                     fuel_rail_psi = None
 
-                    if self._is_quantity(intake):
+                    if (intake is not None and self._is_quantity(intake) and hasattr(intake, "to") and callable(getattr(intake, "to", None))):
                         try:
-                            intake_psi = intake.to('psi').magnitude
+                            val = intake.to('psi')
+                            intake_psi = val.magnitude if hasattr(val, "magnitude") else float(val)
                         except Exception:
                             intake_psi = None
-                    if self._is_quantity(baro):
+                    else:
+                        intake_psi = None
+                    if (baro is not None and self._is_quantity(baro) and hasattr(baro, "to") and callable(getattr(baro, "to", None))):
                         try:
-                            baro_psi = baro.to('psi').magnitude
+                            val = baro.to('psi')
+                            baro_psi = val.magnitude if hasattr(val, "magnitude") else float(val)
                         except Exception:
                             baro_psi = None
-                    if self._is_quantity(fuel_rail):
+                    else:
+                        baro_psi = None
+                    if (fuel_rail is not None and self._is_quantity(fuel_rail) and hasattr(fuel_rail, "to") and callable(getattr(fuel_rail, "to", None))):
                         try:
-                            fuel_rail_psi = fuel_rail.to('psi').magnitude
+                            val = fuel_rail.to('psi')
+                            fuel_rail_psi = val.magnitude if hasattr(val, "magnitude") else float(val)
                         except Exception:
                             fuel_rail_psi = None
+                    else:
+                        fuel_rail_psi = None
 
                     # Manifold pressure relative to atmosphere: intake - baro (positive => boost)
                     manifold_psi = None
@@ -798,19 +804,31 @@ class DataLogger(threading.Thread):
                     row_data = [timestamp]
                     # RPM
                     rpm = snapshot.get('RPM')
-                    row_data.append(f"{float(rpm.magnitude):.2f}" if self._is_quantity(rpm) else (str(rpm) if rpm is not None else "N/A"))
+                    if (rpm is not None and self._is_quantity(rpm) and hasattr(rpm, "magnitude")):
+                        row_data.append(f"{float(rpm.magnitude):.2f}")
+                    else:
+                        row_data.append(str(rpm) if rpm is not None else "N/A")
                     # Engine Load
                     el = snapshot.get('ENGINE_LOAD')
-                    row_data.append(f"{float(el.magnitude):.2f}" if self._is_quantity(el) else (str(el) if el is not None else "N/A"))
+                    if (el is not None and self._is_quantity(el) and hasattr(el, "magnitude")):
+                        row_data.append(f"{float(el.magnitude):.2f}")
+                    else:
+                        row_data.append(str(el) if el is not None else "N/A")
                     # Throttle
                     tp = snapshot.get('THROTTLE_POS')
-                    row_data.append(f"{float(tp.magnitude):.2f}" if self._is_quantity(tp) else (str(tp) if tp is not None else "N/A"))
+                    if (tp is not None and self._is_quantity(tp) and hasattr(tp, "magnitude")):
+                        row_data.append(f"{float(tp.magnitude):.2f}")
+                    else:
+                        row_data.append(str(tp) if tp is not None else "N/A")
                     # Timing advance
                     ta = snapshot.get('TIMING_ADVANCE')
-                    row_data.append(f"{float(ta.magnitude):.2f}" if self._is_quantity(ta) else (str(ta) if ta is not None else "N/A"))
+                    if (ta is not None and self._is_quantity(ta) and hasattr(ta, "magnitude")):
+                        row_data.append(f"{float(ta.magnitude):.2f}")
+                    else:
+                        row_data.append(str(ta) if ta is not None else "N/A")
                     # Existing Boost_Pressure_PSI stored in data_store
                     bp = snapshot.get('Boost_Pressure_PSI')
-                    row_data.append(str(bp))
+                    row_data.append(str(bp) if bp is not None else "N/A")
                     # Manifold pressure (calculated)
                     row_data.append(f"{manifold_psi:.2f}" if manifold_psi is not None else "N/A")
                     # Fuel rail pressure
@@ -822,13 +840,21 @@ class DataLogger(threading.Thread):
                     # Fuel trims
                     sft = snapshot.get('SHORT_FUEL_TRIM_1')
                     lft = snapshot.get('LONG_FUEL_TRIM_1')
-                    row_data.append(f"{float(sft.magnitude):.2f}" if self._is_quantity(sft) else (str(sft) if sft is not None else "N/A"))
-                    row_data.append(f"{float(lft.magnitude):.2f}" if self._is_quantity(lft) else (str(lft) if lft is not None else "N/A"))
+                    if (sft is not None and self._is_quantity(sft) and hasattr(sft, "magnitude")):
+                        row_data.append(f"{float(sft.magnitude):.2f}")
+                    else:
+                        row_data.append(str(sft) if sft is not None else "N/A")
+                    if (lft is not None and self._is_quantity(lft) and hasattr(lft, "magnitude")):
+                        row_data.append(f"{float(lft.magnitude):.2f}")
+                    else:
+                        row_data.append(str(lft) if lft is not None else "N/A")
                     # Commanded and Measured AFR (no lambda columns)
                     row_data.append(f"{cmd_afr:.2f}" if cmd_afr is not None else "N/A")
                     row_data.append(f"{meas_afr:.2f}" if meas_afr is not None else "N/A")
 
                     # Append external ESP32 keys in same order as header (use normalized names)
+                    if 'esp_normalized' not in locals():
+                        esp_normalized = []
                     for orig, clean in esp_normalized:
                         v = snapshot.get(orig)
                         # If value is a dict (two sensors), try to map known subkeys
@@ -852,14 +878,16 @@ class DataLogger(threading.Thread):
                         else:
                             row_data.append(str(v))
 
-                    self.csv_writer.writerow(row_data)
-                    # Ensure data is flushed to disk to minimize lost rows on crash
-                    try:
-                        self.log_file.flush()
-                        os.fsync(self.log_file.fileno())
-                    except Exception:
-                        # Best-effort; do not crash datalogger on fsync failure
-                        pass
+                    if self.csv_writer:
+                        self.csv_writer.writerow(row_data)
+                        # Ensure data is flushed to disk to minimize lost rows on crash
+                        if self.log_file:
+                            try:
+                                self.log_file.flush()
+                                os.fsync(self.log_file.fileno())
+                            except Exception:
+                                # Best-effort; do not crash datalogger on fsync failure
+                                pass
                 except Exception as e:
                     if self.verbose_logger: self.verbose_logger.exception("Error writing to main datalog.")
                     print(f"Error writing to log: {e}")
