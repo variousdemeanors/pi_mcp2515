@@ -465,6 +465,12 @@ class DataLogger(threading.Thread):
         return results
 
     def run(self):
+        print(f"[DEBUG] DataLogger thread started. Connection object: {self.connection}")
+        if hasattr(self.connection, 'is_connected'):
+            print(f"[DEBUG] self.connection.is_connected(): {self.connection.is_connected()}")
+        else:
+            print("[DEBUG] self.connection does not have is_connected() method.")
+        print(f"[DEBUG] pids_to_query: {self.pids_to_query}")
         if self.verbose_logger: self.verbose_logger.info("DataLogger thread started.")
         # Attempt OBD connection; if it fails and allow_no_obd is True,
         # continue running to service external ESP32 sensors and web UI.
