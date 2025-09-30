@@ -5,7 +5,8 @@ After=network.target
 [Service]
 Type=oneshot
 User=root
-ExecStart=/opt/obd2/venv/bin/python /opt/obd2/obd2-repo/scripts/system_check_fix.py
+WorkingDirectory=/opt/obd2/obd2-repo
+ExecStart=/opt/obd2/venv/bin/python /opt/obd2/obd2-repo/scripts/system_check_fix.py --fix
 RemainAfterExit=yes
 
 [Install]
