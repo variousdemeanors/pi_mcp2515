@@ -31,18 +31,11 @@ pip install -r requirements.txt
 # Install pyserial for serial communication
 pip install pyserial
 
-# Set up CAN interface (if needed for testing)
-echo "🔧 Setting up CAN interface..."
-sudo modprobe can
-sudo modprobe can_raw
-sudo modprobe mcp2515
+# Set up CAN interface (optional - not needed for ESP-NOW)
+echo "🔧 CAN interface setup skipped (using ESP-NOW instead)..."
 
-# Create udev rule for MCP2515 (optional)
-echo "🔧 Creating udev rule for MCP2515..."
-sudo tee /etc/udev/rules.d/99-mcp2515.rules > /dev/null <<EOF
-SUBSYSTEM=="spi", KERNEL=="spi0.0", ACTION=="add", RUN+="/sbin/modprobe mcp2515"
-EOF
-sudo udevadm control --reload-rules
+# Create udev rule for MCP2515 (optional - not needed for ESP-NOW)
+echo "🔧 MCP2515 udev rule skipped (using ESP-NOW instead)..."
 
 # Set up logging directory
 echo "📁 Setting up logging directory..."
