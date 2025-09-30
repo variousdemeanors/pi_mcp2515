@@ -128,11 +128,19 @@ class DataLogger(threading.Thread):
             self.verbose_logger.info(f"Raw CAN data logging enabled. Output: {raw_can_log_file}")
 
     def _build_pid_list(self):
-        # CAN-only mode: treat all selected PIDs as strings (hex codes or names)
         pids = {}
         selected = self.config['pid_management']['selected_pids']
-        for pid_name in selected:
-            pids[pid_name] = pid_name
+        if obd:
+            for pid_name in selected:
+                cmd = getattr(obd.commands, pid_name, None)
+                if cmd:
+                    pids[pid_name] = cmd
+                else:
+                    if self.verbose_logger:
+                        self.verbose_logger.warning(f"PID {pid_name} not found in obd.commands, skipping.")
+        else:
+            for pid_name in selected:
+                pids[pid_name] = pid_name  # Fallback for CAN-only or no obd
         if not pids and self.verbose_logger:
             self.verbose_logger.warning("No PIDs to query. Check config.")
         return pids
@@ -479,8 +487,8 @@ class DataLogger(threading.Thread):
             for grp_idx, group in enumerate(groups):
                 group_names = [str(cmd) for cmd in group]
                 if self.verbose_logger: self.verbose_logger.info(f"Querying PID group ({grp_idx+1}/{len(groups)}): {', '.join(group_names)}")
-                # CAN-only: just join PID strings
-                pids_hex = "".join([str(cmd) for cmd in group])
+                # CAN-only mode: just join PID strings
+                pids_hex = "".join([f"{cmd.pid:02X}" if hasattr(cmd, 'pid') else str(cmd) for cmd in group])
                 command_str = f"01{pids_hex}"
                 def decoder(messages):
                     return self._parse_multi_pid_response(messages, group)
@@ -505,15 +513,27 @@ class DataLogger(threading.Thread):
                 except Exception:
                     multi_cmd = None
 
-                # CAN-only mode: no query, just simulate N/A for all PIDs
+                # Query the command if we have a connection that supports it
                 response = None
+                if self.connection and hasattr(self.connection, 'query'):
+                    try:
+                        response = self.connection.query(multi_cmd)
+                    except Exception as e:
+                        if self.verbose_logger: self.verbose_logger.exception(f"Error querying PID group {grp_idx+1}: {e}")
+                        response = None
 
                 self.data_store["pid_read_count"] = str(int(self.data_store.get("pid_read_count", "0")) + len(group))
 
-                # CAN-only mode: set all PIDs in group to N/A
-                if self.verbose_logger: self.verbose_logger.warning(f"No CAN response for group: {', '.join(group_names)}")
-                for cmd in group:
-                    self.data_store[str(cmd)] = "N/A"
+                if response and hasattr(response, 'value') and response.value is not None:
+                    # Parse the multi-PID response
+                    parsed_results = decoder(response.messages if hasattr(response, 'messages') else [response])
+                    for pid_name, value in parsed_results.items():
+                        self.data_store[pid_name] = str(value)
+                else:
+                    # No response or failed query: set all PIDs in group to N/A
+                    if self.verbose_logger: self.verbose_logger.warning(f"No response for group: {', '.join(group_names)}")
+                    for cmd in group:
+                        self.data_store[str(cmd)] = "N/A"
 
                 # Optional inter-group delay to avoid bus saturation
                 if group_delay_ms > 0 and grp_idx < len(groups) - 1:
@@ -543,8 +563,17 @@ class DataLogger(threading.Thread):
             # --- Data Processing and Logging ---
             intake_pressure = self.data_store.get('INTAKE_PRESSURE')
             baro_pressure = self.data_store.get('BAROMETRIC_PRESSURE')
-            # CAN-only: cannot calculate boost, set N/A
-            self.data_store["Boost_Pressure_PSI"] = "N/A"
+            # Calculate boost pressure if both pressures are available
+            if intake_pressure and baro_pressure and intake_pressure != "N/A" and baro_pressure != "N/A":
+                try:
+                    intake_val = float(intake_pressure)
+                    baro_val = float(baro_pressure)
+                    boost = intake_val - baro_val
+                    self.data_store["Boost_Pressure_PSI"] = str(boost)
+                except ValueError:
+                    self.data_store["Boost_Pressure_PSI"] = "N/A"
+            else:
+                self.data_store["Boost_Pressure_PSI"] = "N/A"
 
             # --- AFR Calculations ---
             # Calculate commanded AFR from lambda (COMMANDED_EQUIV_RATIO)
@@ -576,6 +605,7 @@ class DataLogger(threading.Thread):
                     # Create a copy of the data to avoid modifying the live data_store
                     logged_data = self.data_store.copy()
                     # Already converted to imperial above
+                    esp_normalized = []  # Initialize to avoid unbound variable
                     if not self.header_written:
                         # Build explicit header list (shortened/cleaned)
                         header = [

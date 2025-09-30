@@ -1,15 +1,15 @@
 """
-Wireless OBD Adapter for Acebott ESP32 Max with MCP2515 CAN Transceiver
+Wireless OBD Adapter for ESP32 ESP-NOW Coordinator with MCP2515 CAN Transceiver
 
 This module provides a python-obd compatible interface for communicating with
-the Acebott ESP32 board that acts as a wireless CAN/OBD2 adapter. The ESP32
-connects to the vehicle's OBD2 port via MCP2515 and transmits data over WiFi.
+an ESP32 coordinator that receives data from a CAN-connected ESP32 via ESP-NOW.
+The coordinator forwards data to the Pi via serial over GPIO.
 
-Compatible with existing RPi4 datalogger without modifying core functionality.
+Compatible with existing RPi datalogger without modifying core functionality.
 """
 
 import time
-import requests
+import serial
 import json
 import threading
 from datetime import datetime
@@ -20,20 +20,20 @@ logger = logging.getLogger(__name__)
 
 class WirelessOBDAdapter:
     """
-    A python-obd compatible adapter that communicates with the Acebott ESP32 
-    via HTTP requests over WiFi. The ESP32 acts as a CAN/OBD2 gateway.
+    A python-obd compatible adapter that communicates with the ESP32 coordinator
+    via serial over GPIO. The coordinator receives CAN/OBD2 data via ESP-NOW.
     """
     
-    def __init__(self, esp32_ip="192.168.4.1", esp32_port=5000, timeout=5):
-        self.esp32_ip = esp32_ip
-        self.esp32_port = esp32_port
+    def __init__(self, serial_port="/dev/ttyAMA0", baudrate=115200, timeout=5):
+        self.serial_port = serial_port
+        self.baudrate = baudrate
         self.timeout = timeout
-        self.base_url = f"http://{esp32_ip}:{esp32_port}"
+        self.serial_conn = None
         self.is_connected = False
         self.last_data = {}
         self.data_lock = threading.Lock()
         
-        # OBD2 PID mapping (matches Acebott firmware)
+        # OBD2 PID mapping (matches ESP32 firmware)
         # pid_mapping will be constructed lazily to avoid importing python-obd
         # at module import time on systems that don't have it installed.
         self.pid_mapping = None
@@ -45,32 +45,37 @@ class WirelessOBDAdapter:
     # (initialized in __init__).
         
     def connect(self):
-        """Attempt to connect to the Acebott ESP32 OBD2 scanner."""
+        """Attempt to connect to the ESP32 coordinator via serial."""
         try:
-            # Test connection
-            response = requests.get(f"{self.base_url}/status", timeout=self.timeout)
-            if response.status_code == 200:
-                logger.info(f"✅ Connected to Acebott ESP32 at {self.esp32_ip}:{self.esp32_port}")
-                
+            self.serial_conn = serial.Serial(self.serial_port, self.baudrate, timeout=self.timeout)
+            # Test connection by sending a ping
+            self.serial_conn.write(b"PING\n")
+            response = self.serial_conn.readline().decode().strip()
+            if response == "PONG":
+                logger.info(f"✅ Connected to ESP32 coordinator on {self.serial_port}")
+                self.is_connected = True
                 # Start data fetching thread
                 self.start_data_thread()
                 return True
             else:
-                logger.error(f"❌ ESP32 responded with status {response.status_code}")
+                logger.error(f"❌ ESP32 coordinator responded with: {response}")
+                self.serial_conn.close()
                 return False
                 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"❌ Failed to connect to ESP32: {e}")
+        except serial.SerialException as e:
+            logger.error(f"❌ Failed to connect to ESP32 coordinator: {e}")
             self.is_connected = False
             return False
     
     def disconnect(self):
-        """Disconnect from the ESP32."""
+        """Disconnect from the ESP32 coordinator."""
         self.stop_thread = True
         if self.data_thread and self.data_thread.is_alive():
             self.data_thread.join(timeout=2)
+        if self.serial_conn:
+            self.serial_conn.close()
         self.is_connected = False
-        logger.info("Disconnected from Acebott ESP32")
+        logger.info("Disconnected from ESP32 coordinator")
     
     def start_data_thread(self):
         """Start background thread to continuously fetch data from ESP32."""
@@ -80,47 +85,39 @@ class WirelessOBDAdapter:
             self.data_thread.start()
 
     def _ensure_pid_mapping(self):
-        """Build pid_mapping lazily. If python-obd is available, use command
-        objects as keys; otherwise fall back to string keys matching the
-        JSON payload returned by the ESP32.
-        """
+        """Build pid_mapping lazily. Use string keys for PID names."""
         if self.pid_mapping is not None:
             return
-        try:
-            import obd as _obd
-            self.pid_mapping = {
-                _obd.commands.RPM: "rpm",
-                _obd.commands.ENGINE_LOAD: "engineLoad",
-                _obd.commands.INTAKE_TEMP: "intakeTemp",
-                _obd.commands.INTAKE_PRESSURE: "manifoldPressure",
-                _obd.commands.SPEED: "vehicleSpeed",
-                _obd.commands.THROTTLE_POS: "throttlePos",
-                _obd.commands.COOLANT_TEMP: "coolantTemp",
-                _obd.commands.MAF: "mafRate"
-            }
-        except Exception:
-            # Fallback: use simple string keys (the adapter still returns JSON fields)
-            self.pid_mapping = {
-                'RPM': 'rpm', 'ENGINE_LOAD': 'engineLoad', 'INTAKE_TEMP': 'intakeTemp',
-                'INTAKE_PRESSURE': 'manifoldPressure', 'SPEED': 'vehicleSpeed',
-                'THROTTLE_POS': 'throttlePos', 'COOLANT_TEMP': 'coolantTemp', 'MAF': 'mafRate'
-            }
+        self.pid_mapping = {
+            "RPM": "rpm",
+            "ENGINE_LOAD": "engineLoad",
+            "INTAKE_TEMP": "intakeTemp",
+            "INTAKE_PRESSURE": "manifoldPressure",
+            "SPEED": "vehicleSpeed",
+            "THROTTLE_POS": "throttlePos",
+            "COOLANT_TEMP": "coolantTemp",
+            "MAF": "mafRate"
+        }
 
     def _data_loop(self):
-        """Background loop to poll ESP32 for data and update last_data."""
+        """Background loop to poll ESP32 coordinator for data and update last_data."""
         self._ensure_pid_mapping()
         while not self.stop_thread:
             try:
-                response = requests.get(f"{self.base_url}/data", timeout=self.timeout)
-                if response.status_code == 200:
-                    data = response.json()
-                    with self.data_lock:
-                        self.last_data = data
-                        self.last_data['timestamp'] = time.time()
+                if self.serial_conn and self.serial_conn.is_open:
+                    self.serial_conn.write(b"GET_DATA\n")
+                    response_line = self.serial_conn.readline().decode().strip()
+                    if response_line:
+                        data = json.loads(response_line)
+                        with self.data_lock:
+                            self.last_data = data
+                            self.last_data['timestamp'] = time.time()
+                    else:
+                        logger.warning("No response from ESP32 coordinator")
                 else:
-                    logger.warning(f"ESP32 data fetch returned {response.status_code}")
+                    logger.warning("Serial connection not open")
 
-            except requests.exceptions.RequestException as e:
+            except (serial.SerialException, json.JSONDecodeError) as e:
                 logger.warning(f"Data fetch error: {e}")
                 # Brief pause before retry
                 time.sleep(0.2)
@@ -155,11 +152,12 @@ class WirelessOBDAdapter:
             return None
         
         # Map OBD command to ESP32 data field
-        if cmd not in self.pid_mapping:
-            logger.debug(f"PID not supported by wireless adapter: {cmd}")
+        cmd_key = cmd.name if hasattr(cmd, 'name') else str(cmd)
+        if cmd_key not in self.pid_mapping:
+            logger.debug(f"PID not supported by wireless adapter: {cmd_key}")
             return None
 
-        field_name = self.pid_mapping[cmd]
+        field_name = self.pid_mapping[cmd_key]
         if field_name not in data_copy:
             return None
 
@@ -265,11 +263,11 @@ class WirelessOBDConnection:
         Initialize wireless OBD connection.
         
         Args:
-            esp32_config: Dictionary with esp32_ip, esp32_port, timeout
+            esp32_config: Dictionary with serial_port, baudrate, timeout
         """
         self.adapter = WirelessOBDAdapter(
-            esp32_ip=esp32_config.get('esp32_ip', '192.168.4.1'),
-            esp32_port=esp32_config.get('esp32_port', 5000),
+            serial_port=esp32_config.get('serial_port', '/dev/ttyAMA0'),
+            baudrate=esp32_config.get('baudrate', 115200),
             timeout=esp32_config.get('timeout', 5)
         )
         self.is_connected = False
