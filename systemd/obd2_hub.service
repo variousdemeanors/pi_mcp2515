@@ -1,12 +1,12 @@
 [Unit]
-Description=OBD2 Hub Service
+Description=OBD2 Hub Service (ESP32 Coordinator)
 After=network.target obd2_startup.service
 
 [Service]
 Type=simple
 User=pi
 WorkingDirectory=/opt/obd2/obd2-repo
-ExecStart=/opt/obd2/venv/bin/python /opt/obd2/obd2-repo/core/datalogger.py
+ExecStart=/opt/obd2/venv/bin/python /opt/obd2/obd2-repo/scripts/run_dashboard.py
 Restart=always
 RestartSec=5
 
