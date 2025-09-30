@@ -54,11 +54,22 @@ def ensure_venv_packages(fix=False):
     return True
 
 def ensure_can_interface(fix=False):
-    # try to load modules
+    # Check if we're using serial (ESP32) instead of CAN
+    cfg_path = 'config.json'
+    if os.path.exists(cfg_path):
+        try:
+            cfg = json.load(open(cfg_path))
+            obd_type = cfg.get('network', {}).get('obd_connection', {}).get('type')
+            if obd_type == 'serial':
+                print('ESP32 serial mode detected - skipping CAN interface check')
+                return True
+        except:
+            pass
+    
+    # Original CAN interface check for MCP2515 setups
     run(['modprobe','mcp251x'])
     run(['modprobe','can'])
     run(['modprobe','can_raw'])
-    # try to bring up can0 at 500k
     r = run(['ip','link','show','can0'])
     if r.returncode == 0:
         print('can0 exists')
@@ -79,17 +90,31 @@ def ensure_config(fix=False):
     cfg = json.load(open(cfg_path))
     changed = False
     net = cfg.setdefault('network',{}).setdefault('obd_connection',{})
-    if net.get('type') != 'local_mcp2515':
+    obd_type = net.get('type')
+    
+    # Skip CAN config changes if already set to serial (ESP32 mode)
+    if obd_type == 'serial':
+        print('ESP32 serial config detected - skipping CAN config changes')
+    elif obd_type != 'local_mcp2515':
         print('Config: switching network.obd_connection.type to local_mcp2515')
         net['type'] = 'local_mcp2515'
         net['interface'] = net.get('interface','can0')
         net['bitrate'] = net.get('bitrate',500000)
         changed = True
+    
     dlog = cfg.setdefault('datalogging',{})
-    if not dlog.get('open_socketcan_if_local', False):
-        print('Config: enabling datalogging.open_socketcan_if_local')
-        dlog['open_socketcan_if_local'] = True
-        changed = True
+    if obd_type == 'serial':
+        # For ESP32 serial mode, ensure socketcan setting is false
+        if dlog.get('open_socketcan_if_local', True):
+            print('Config: disabling datalogging.open_socketcan_if_local for ESP32 serial mode')
+            dlog['open_socketcan_if_local'] = False
+            changed = True
+    else:
+        # For CAN mode, ensure socketcan setting is true
+        if not dlog.get('open_socketcan_if_local', False):
+            print('Config: enabling datalogging.open_socketcan_if_local')
+            dlog['open_socketcan_if_local'] = True
+            changed = True
 
     if changed and fix:
         json.dump(cfg, open(cfg_path,'w'), indent=2)
