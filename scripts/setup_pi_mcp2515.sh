@@ -80,7 +80,9 @@ echo "Log directory set to $LOG_DIR (owner: $APP_USER)"
 echo
 echo "-- Installing MCP2515 dtoverlay into /boot/config.txt (idempotent) --"
 DT_LINE='dtoverlay=mcp2515-can0,oscillator=16000000,interrupt=25'
-if [ -f "/boot/firmware/config" ]; then
+if [ -f "/boot/firmware/config.txt" ]; then
+  CONFIG_TXT="/boot/firmware/config.txt"
+elif [ -f "/boot/firmware/config" ]; then
   CONFIG_TXT="/boot/firmware/config"
 else
   CONFIG_TXT="/boot/config.txt"
