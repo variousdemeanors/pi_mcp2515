@@ -13,7 +13,7 @@ typedef struct {
   float vehicleSpeed;
   float throttlePos;
   float coolantTemp;
-  float mafRate;
+  // float mafRate;  // Not used - car has MAP sensor
 } OBDData;
 
 OBDData latestData;
@@ -58,8 +58,8 @@ void loop() {
       Serial.print("\"manifoldPressure\":"); Serial.print(latestData.manifoldPressure); Serial.print(",");
       Serial.print("\"vehicleSpeed\":"); Serial.print(latestData.vehicleSpeed); Serial.print(",");
       Serial.print("\"throttlePos\":"); Serial.print(latestData.throttlePos); Serial.print(",");
-      Serial.print("\"coolantTemp\":"); Serial.print(latestData.coolantTemp); Serial.print(",");
-      Serial.print("\"mafRate\":"); Serial.print(latestData.mafRate);
+      Serial.print("\"coolantTemp\":"); Serial.print(latestData.coolantTemp);
+      // Serial.print(",\"mafRate\":"); Serial.print(latestData.mafRate);  // Not used - car has MAP sensor
       Serial.println("}");
     }
   }

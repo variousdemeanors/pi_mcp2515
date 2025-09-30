@@ -95,8 +95,8 @@ class WirelessOBDAdapter:
             "INTAKE_PRESSURE": "manifoldPressure",
             "SPEED": "vehicleSpeed",
             "THROTTLE_POS": "throttlePos",
-            "COOLANT_TEMP": "coolantTemp",
-            "MAF": "mafRate"
+            "COOLANT_TEMP": "coolantTemp"
+            # "MAF": "mafRate"  # Not used - car has MAP sensor
         }
 
     def _data_loop(self):

@@ -20,7 +20,7 @@ typedef struct {
   float vehicleSpeed;
   float throttlePos;
   float coolantTemp;
-  float mafRate;
+  // float mafRate;  // Not used - car has MAP sensor
 } OBDData;
 
 OBDData obdData;
@@ -33,7 +33,7 @@ OBDData obdData;
 #define PID_SPEED 0x0D
 #define PID_THROTTLE_POS 0x11
 #define PID_COOLANT_TEMP 0x05
-#define PID_MAF 0x10
+//#define PID_MAF 0x10  // Not used - car has MAP sensor
 
 void setup() {
   Serial.begin(115200);
@@ -79,7 +79,7 @@ void loop() {
   obdData.vehicleSpeed = queryPID(PID_SPEED);
   obdData.throttlePos = queryPID(PID_THROTTLE_POS);
   obdData.coolantTemp = queryPID(PID_COOLANT_TEMP);
-  obdData.mafRate = queryPID(PID_MAF);
+  // obdData.mafRate = queryPID(PID_MAF);  // Not used - car has MAP sensor
 
   // Send data via ESP-NOW
   esp_now_send(coordinatorMac, (uint8_t *)&obdData, sizeof(OBDData));
@@ -133,8 +133,8 @@ float parsePIDResponse(uint8_t pid, uint8_t* data) {
       return data[3] / 2.55;
     case PID_COOLANT_TEMP:
       return data[3] - 40;
-    case PID_MAF:
-      return ((data[3] * 256) + data[4]) / 100.0;
+    // case PID_MAF:
+    //   return ((data[3] * 256) + data[4]) / 100.0;  // Not used - car has MAP sensor
     default:
       return 0.0;
   }
