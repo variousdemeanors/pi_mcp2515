@@ -1,0 +1,12 @@
+[Unit]
+Description=OBD2 Startup Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/opt/obd2/venv/bin/python /opt/obd2/obd2-repo/scripts/system_check_fix.py
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

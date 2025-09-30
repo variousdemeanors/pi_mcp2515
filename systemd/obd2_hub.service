@@ -1,0 +1,14 @@
+[Unit]
+Description=OBD2 Hub Service
+After=network.target obd2_startup.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/obd2/obd2-repo
+ExecStart=/opt/obd2/venv/bin/python /opt/obd2/obd2-repo/core/datalogger.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
