@@ -18,6 +18,11 @@ if os.path.exists(venv_path):
     if site_packages not in sys.path:
         sys.path.insert(0, site_packages)
 
+# Add the repository root to sys.path so we can import core modules
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 from core.config import load_config
 from core.datalogger import DataLogger
 from core.webapp import start_webapp
