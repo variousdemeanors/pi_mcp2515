@@ -41,7 +41,7 @@ typedef struct {
 
 // MAC addresses (configure these)
 uint8_t canEsp32Mac[] = {0x08, 0xA6, 0xF7, 0xBB, 0x64, 0x60}; // CAN ESP32 MAC - Acebott board MAC
-uint8_t wmiDisplayMac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // WMI Display MAC
+uint8_t wmiDisplayMac[] = {0x1C, 0x69, 0x20, 0x95, 0x9F, 0x50}; // WMI Display MAC
 
 // WMI state
 bool wmiArmed = false;
