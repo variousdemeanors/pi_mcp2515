@@ -32,7 +32,7 @@ void setup() {
     return;
   }
 
-  esp_now_register_recv_cb([](const uint8_t *mac_addr, const uint8_t *data, int len) {
+  esp_now_register_recv_cb([](const esp_now_recv_info *esp_now_info, const uint8_t *data, int len) {
     if (len == sizeof(OBDData)) {
       memcpy(&latestData, data, sizeof(OBDData));
     }
