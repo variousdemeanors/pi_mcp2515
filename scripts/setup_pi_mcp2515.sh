@@ -16,7 +16,7 @@ PYTHON_BIN="/usr/bin/python3"
 REQUIREMENTS_FILE="$REPO_DIR/requirements.txt"
 CAN_BITRATE=500000
 APP_DIR="/opt/obd2/obd2-repo"
-PRECONFIG="$REPO_DIR/config.preconfigured_mcp2515.json"
+PRECONFIG="$REPO_DIR/config.preconfigured_esp32.json"
 
 echo "Preparing Pi for MCP2515 CAN (REPO_DIR=$REPO_DIR, APP_DIR=$APP_DIR)"
 
@@ -78,43 +78,8 @@ chown -R "$APP_USER":"$APP_USER" "$LOG_DIR" || true
 echo "Log directory set to $LOG_DIR (owner: $APP_USER)"
 
 echo
-echo "-- Installing MCP2515 dtoverlay into /boot/config.txt (idempotent) --"
-DT_LINE='dtoverlay=mcp2515-can0,oscillator=16000000,interrupt=25'
-if [ -f "/boot/firmware/config.txt" ]; then
-  CONFIG_TXT="/boot/firmware/config.txt"
-elif [ -f "/boot/firmware/config" ]; then
-  CONFIG_TXT="/boot/firmware/config"
-else
-  CONFIG_TXT="/boot/config.txt"
-fi
-if ! grep -Fq "$DT_LINE" "$CONFIG_TXT" 2>/dev/null; then
-  echo "$DT_LINE" >> "$CONFIG_TXT"
-  echo "Added dtoverlay to $CONFIG_TXT (requires reboot to take full effect)."
-else
-  echo "dtoverlay already present in $CONFIG_TXT"
-fi
-
-echo
-echo "-- Loading CAN kernel modules --"
-modprobe can || true
-modprobe can_raw || true
-modprobe mcp251x || true
-modprobe can_dev || true
-
-echo "Probing CAN bitrates (trying 500000 then 250000)"
-ip link set can0 down 2>/dev/null || true
-DETECTED_BITRATE=0
-if ip link set can0 up type can bitrate 500000 2>/dev/null; then
-  DETECTED_BITRATE=500000
-  echo "can0 is up at 500000"
-elif ip link set can0 up type can bitrate 250000 2>/dev/null; then
-  DETECTED_BITRATE=250000
-  echo "can0 is up at 250000"
-else
-  echo "Failed to bring up can0 automatically at common bitrates. It may require a reboot for the dtoverlay to take effect."
-fi
-
-echo "Detected CAN bitrate: ${DETECTED_BITRATE:-0}"
+echo "-- Skipping MCP2515 setup (using ESP32 CAN board instead) --"
+echo "CAN functionality will be handled by ESP32 board communicating via ESP-NOW"
 
 echo
 echo "-- Installing systemd service units --"
@@ -155,35 +120,18 @@ else
 fi
 
 echo
-echo "-- Applying preconfigured config (MCP2515) --"
+echo "-- Applying preconfigured config (ESP32 CAN board) --"
 if [ -f "$PRECONFIG" ]; then
   cp "$PRECONFIG" "$APP_DIR/config.json"
   chown "$APP_USER":"$APP_USER" "$APP_DIR/config.json"
   echo "Installed preconfigured config to $APP_DIR/config.json"
-  # If we detected a bitrate, update the copied config.json accordingly
-  if [ "$DETECTED_BITRATE" -ne 0 ]; then
-    echo "Patching config.json with detected bitrate $DETECTED_BITRATE"
-    python3 - <<PY
-import json
-p='''$APP_DIR/config.json'''
-with open(p,'r') as f:
-    cfg=json.load(f)
-cfg.setdefault('network',{}).setdefault('obd_connection',{})['bitrate'] = $DETECTED_BITRATE
-with open(p,'w') as f:
-    json.dump(cfg,f,indent=2)
-print('Patched bitrate into',p)
-PY
-  else
-    echo "No bitrate detected; config.json left unchanged."
-  fi
 else
   echo "Preconfigured config not found at $PRECONFIG — skipping"
 fi
 
 echo
 echo "Setup complete. Notes:"
-echo " - If you added the dtoverlay, reboot is recommended: sudo reboot"
-echo " - Check can interface: ip link show can0 || true"
+echo " - ESP32 coordinator board should be connected to Pi GPIO serial"
 echo " - Check service status: sudo systemctl status obd2_hub.service obd2_web.service"
 
 exit 0

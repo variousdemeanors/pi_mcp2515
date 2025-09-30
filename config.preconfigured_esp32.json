@@ -1,0 +1,76 @@
+{
+  "network": {
+    "mode": "Client",
+    "ap_ssid": "datalogger",
+    "ap_password": "datalogger",
+    "ap_encryption": "WPA2",
+    "client_ssid": "",
+    "client_password": "",
+    "obd_connection": {
+      "type": "serial",
+      "port": "/dev/ttyAMA0",
+      "baudrate": 115200,
+      "fast": false
+    }
+  },
+  "datalogging": {
+    "output_path": "/var/log/obd2",
+    "default_filename": "%Y-%m-%d_%H-%M-%S_datalog.csv",
+    "custom_filename": null,
+    "log_rotation": "per_session",
+    "logging_interval_ms": 100,
+    "display_units": "imperial"
+    ,
+    "open_socketcan_if_local": true
+  },
+  "fuel": {
+    "injector_flow_rate": 24.0,
+    "num_cylinders": 4,
+    "displacement": 2.0,
+    "fuel_type": "gasoline",
+    "stoichiometric_afr": 14.7,
+    "ethanol_content": 0,
+    "injection_type": "port",
+    "fuel_pressure_psi": 43.5
+  },
+  "pid_management": {
+    "discovered_pids_file": "discovered_pids.txt",
+    "selected_pids": [
+      "RPM",
+      "ENGINE_LOAD",
+      "THROTTLE_POS",
+      "TIMING_ADVANCE",
+      "INTAKE_PRESSURE",
+      "BAROMETRIC_PRESSURE",
+      "FUEL_RAIL_PRESSURE_DIRECT",
+      "COOLANT_TEMP",
+      "AMBIANT_AIR_TEMP",
+      "INTAKE_TEMP"
+    ]
+  },
+  "benchmark": {
+    "results_file": "benchmark_results.txt"
+  },
+  "web_dashboard": {
+    "enabled": true,
+    "port": 5000,
+    "secret_key": "preconfigured_secret_key",
+    "username": "admin",
+    "password_hash": ""
+  },
+  "esp32": {
+    "enabled": false,
+    "devices": []
+  },
+  "service": {
+    "autostart": "dashboard"
+  },
+  "debugging": {
+    "enabled": false,
+    "verbose_log_file": "datalogger_verbose.log",
+    "raw_can_log_file": "datalogger_raw_can.csv"
+  },
+  "debug": {
+    "mock_data_mode": false
+  }
+}
