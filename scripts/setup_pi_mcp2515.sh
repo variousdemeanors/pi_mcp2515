@@ -82,6 +82,14 @@ echo "-- Skipping MCP2515 setup (using ESP32 CAN board instead) --"
 echo "CAN functionality will be handled by ESP32 board communicating via ESP-NOW"
 
 echo
+echo "-- Enabling UART interface for ESP32 coordinator --"
+echo "Enabling serial interface and disabling Bluetooth UART..."
+raspi-config nonint do_serial 0
+systemctl disable hciuart || true
+systemctl stop hciuart || true
+echo "UART interface enabled for ESP32 serial communication"
+
+echo
 echo "-- Installing systemd service units --"
 SYSTEMD_DIR_SOURCE="$REPO_DIR/systemd"
 if [ -d "$SYSTEMD_DIR_SOURCE" ]; then
