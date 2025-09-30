@@ -80,6 +80,7 @@ echo "Log directory set to $LOG_DIR (owner: $APP_USER)"
 echo
 echo "-- Installing MCP2515 dtoverlay into /boot/config.txt (idempotent) --"
 DT_LINE='dtoverlay=mcp2515-can0,oscillator=16000000,interrupt=25'
+SPI_LINE='dtparam=spi=on'
 if [ -f "/boot/firmware/config.txt" ]; then
   CONFIG_TXT="/boot/firmware/config.txt"
 elif [ -f "/boot/firmware/config" ]; then
@@ -87,6 +88,14 @@ elif [ -f "/boot/firmware/config" ]; then
 else
   CONFIG_TXT="/boot/config.txt"
 fi
+# Enable SPI if not already enabled
+if ! grep -Fq "$SPI_LINE" "$CONFIG_TXT" 2>/dev/null; then
+  echo "$SPI_LINE" >> "$CONFIG_TXT"
+  echo "Enabled SPI in $CONFIG_TXT"
+else
+  echo "SPI already enabled in $CONFIG_TXT"
+fi
+# Add MCP2515 dtoverlay
 if ! grep -Fq "$DT_LINE" "$CONFIG_TXT" 2>/dev/null; then
   echo "$DT_LINE" >> "$CONFIG_TXT"
   echo "Added dtoverlay to $CONFIG_TXT (requires reboot to take full effect)."
