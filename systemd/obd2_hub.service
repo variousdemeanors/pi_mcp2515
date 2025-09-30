@@ -1,14 +1,11 @@
 [Unit]
-Description=OBD2 Hub Service (ESP32 Coordinator)
+Description=OBD2 Hub Service (Disabled for ESP32 setup)
 After=network.target obd2_startup.service
 
 [Service]
-Type=simple
-User=pi
-WorkingDirectory=/opt/obd2/obd2-repo
-ExecStart=/opt/obd2/venv/bin/python /opt/obd2/obd2-repo/scripts/run_dashboard.py
-Restart=always
-RestartSec=5
+Type=oneshot
+ExecStart=/bin/true
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
