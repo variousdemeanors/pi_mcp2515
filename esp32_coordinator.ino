@@ -22,7 +22,13 @@ typedef struct {
 
 OBDData latestData;
 
-// WMI Display data structure
+// Methanol sensor data structure
+typedef struct {
+  float pressurePre;   // PSI
+  float pressurePost;  // PSI
+} MethanolData;
+
+MethanolData latestMethanolData;
 typedef struct {
   float methanolPressurePre;    // PSI
   float methanolPressurePost;   // PSI
@@ -42,6 +48,7 @@ typedef struct {
 // MAC addresses (configure these)
 uint8_t canEsp32Mac[] = {0x08, 0xA6, 0xF7, 0xBB, 0x64, 0x60}; // CAN ESP32 MAC - Acebott board MAC
 uint8_t wmiDisplayMac[] = {0x1C, 0x69, 0x20, 0x95, 0x9F, 0x50}; // WMI Display MAC
+uint8_t methanolEsp32Mac[] = {0xB4, 0x8A, 0x0A, 0x81, 0xCF, 0xCC}; // Methanol sensor ESP32 MAC
 
 // WMI state
 bool wmiArmed = false;
@@ -52,11 +59,18 @@ bool systemHealthy = true;
 
 // ESP-NOW receive callback
 void OnDataRecv(const esp_now_recv_info *esp_now_info, const uint8_t *data, int len) {
-  if (len == sizeof(OBDData)) {
-    memcpy(&latestData, data, sizeof(OBDData));
-
-    // Forward to WMI display
-    sendToWMIDisplay();
+  if (memcmp(esp_now_info->src_addr, canEsp32Mac, 6) == 0) {
+    if (len == sizeof(OBDData)) {
+      memcpy(&latestData, data, sizeof(OBDData));
+      // Forward to WMI display
+      sendToWMIDisplay();
+    }
+  } else if (memcmp(esp_now_info->src_addr, methanolEsp32Mac, 6) == 0) {
+    if (len == sizeof(MethanolData)) {
+      memcpy(&latestMethanolData, data, sizeof(MethanolData));
+      // Forward to WMI display
+      sendToWMIDisplay();
+    }
   } else if (len == sizeof(uint8_t)) {
     // WMI toggle command from display - forward to CAN ESP32
     uint8_t command = *data;
@@ -72,8 +86,8 @@ void OnDataRecv(const esp_now_recv_info *esp_now_info, const uint8_t *data, int 
 // Send data to WMI display
 void sendToWMIDisplay() {
   WMIData wmiData = {
-    45.0,  // methanolPressurePre (placeholder - would come from sensors)
-    42.0,  // methanolPressurePost (placeholder)
+    latestMethanolData.pressurePre,   // methanolPressurePre
+    latestMethanolData.pressurePost,  // methanolPressurePost
     (int)latestData.rpm,
     latestData.manifoldPressure - 14.7,  // Convert to boost pressure (absolute to gauge)
     latestData.intakeTemp,
@@ -97,6 +111,10 @@ void addPeers() {
   memcpy(peerInfo.peer_addr, canEsp32Mac, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
+  esp_now_add_peer(&peerInfo);
+
+  // Add methanol sensor ESP32 as peer
+  memcpy(peerInfo.peer_addr, methanolEsp32Mac, 6);
   esp_now_add_peer(&peerInfo);
 
   // Add WMI display as peer
