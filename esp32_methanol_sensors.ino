@@ -60,7 +60,7 @@ void setup() {
   // });
 
   // Add coordinator as peer
-  esp_now_peer_info_t peerInfo;
+  esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, coordinatorMac, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
