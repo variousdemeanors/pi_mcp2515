@@ -11,7 +11,20 @@ Usage:
 """
 import sys
 import json
+import os
 from pathlib import Path
+
+# Activate virtual environment
+venv_path = '/opt/obd2/venv'
+if os.path.exists(venv_path):
+    venv_bin = os.path.join(venv_path, 'bin')
+    if venv_bin not in os.environ.get('PATH', ''):
+        os.environ['PATH'] = venv_bin + ':' + os.environ.get('PATH', '')
+    # Add site-packages to sys.path
+    import site
+    site_packages = os.path.join(venv_path, 'lib', 'python' + '.'.join(map(str, sys.version_info[:2])), 'site-packages')
+    if site_packages not in sys.path:
+        sys.path.insert(0, site_packages)
 
 def main():
     # Ensure repo root is on path
