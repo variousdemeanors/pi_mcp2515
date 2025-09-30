@@ -30,7 +30,9 @@ def check_services():
         r2 = run(['systemctl','is-active',s])
         active = (r2.returncode == 0)
         print(f"Service {s}: enabled={enabled} active={active}")
-        ok = ok and enabled and active
+        # For startup service, we only require services to be enabled
+        # They may not be active yet since this runs before they start
+        ok = ok and enabled
     return ok
 
 def ensure_venv_packages(fix=False):
