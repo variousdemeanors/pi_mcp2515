@@ -87,6 +87,7 @@ void loop() {
     if (t_x > RESET_BUTTON_X && t_x < (RESET_BUTTON_X + RESET_BUTTON_W) && t_y > RESET_BUTTON_Y && t_y < (RESET_BUTTON_Y + RESET_BUTTON_H)) {
       resetStats();
       drawUI(); // Redraw the UI after clearing
+      delay(200); // Debounce touch
     }
   }
 
