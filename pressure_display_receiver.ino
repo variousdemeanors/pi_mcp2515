@@ -1,12 +1,9 @@
 /*
-  ESP-NOW Pressure Display Receiver
+  ESP-NOW Pressure Display Receiver (v2 - Correct Labels)
 
   This sketch runs on the 3.2" ESP32-32E Display Board.
   It receives pressure data wirelessly via ESP-NOW from the transmitter board
-  and displays it on the ST7789 TFT screen.
-
-  HARDWARE:
-  - 3.2inch ESP32-32E Display Board
+  and displays it on the ST7789 TFT screen with corrected labels.
 */
 
 #include <esp_now.h>
@@ -44,10 +41,11 @@ void setup() {
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setTextSize(3);
 
   tft.setCursor(10, 10);
-  tft.println("Waiting for data...");
+  tft.setTextSize(2); // Slightly smaller text for the title
+  tft.println("WMI Pressure Monitor");
+  tft.setTextSize(3); // Larger text for the data
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -55,7 +53,7 @@ void setup() {
   // Initialize ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
-    tft.setCursor(10, 40);
+    tft.setCursor(10, 50);
     tft.println("ESP-NOW Init Failed!");
     return;
   }
@@ -71,19 +69,20 @@ void loop() {
   if (newData) {
     newData = false; // Reset the flag
 
-    // Display the received values on the TFT screen
-    tft.setCursor(20, 50);
-    tft.print("Tank PSI: ");
+    // Display Sensor 1: Pre-Solenoid
+    tft.setCursor(10, 60);
+    tft.print("Pre-Solenoid: ");
     tft.print(sensorReadings.pressure1, 1);
-    tft.print("  ");
+    tft.print(" PSI "); // Add units and padding
 
-    tft.setCursor(20, 100);
-    tft.print("Line PSI: ");
+    // Display Sensor 2: Post-Solenoid
+    tft.setCursor(10, 110);
+    tft.print("Post-Solenoid:");
     tft.print(sensorReadings.pressure2, 1);
-    tft.print("  ");
+    tft.print(" PSI ");
 
     // Print to Serial monitor for debugging
-    Serial.printf("Received Data -> Tank: %.1f PSI, Line: %.1f PSI\n", sensorReadings.pressure1, sensorReadings.pressure2);
+    Serial.printf("Received Data -> Pre: %.1f PSI, Post: %.1f PSI\n", sensorReadings.pressure1, sensorReadings.pressure2);
   }
   // No delay here - we want to update the screen as soon as data arrives.
 }
