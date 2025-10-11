@@ -10,6 +10,7 @@
 
 #include <esp_now.h>
 #include <WiFi.h>
+#include <string.h>
 
 // =========================================================================
 // CONFIGURATION
@@ -52,6 +53,7 @@ void setup() {
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
+  WiFi.setChannel(1);
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
@@ -64,8 +66,9 @@ void setup() {
 
   // Register peer
   esp_now_peer_info_t peerInfo;
+  memset(&peerInfo, 0, sizeof(esp_now_peer_info_t));
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = 0;
+  peerInfo.channel = 1;
   peerInfo.encrypt = false;
 
   // Add peer
