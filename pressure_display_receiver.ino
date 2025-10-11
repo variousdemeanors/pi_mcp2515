@@ -1,11 +1,10 @@
 /*
-  ESP-NOW Pressure Display Receiver (v3 - Corrected Callback)
+  ESP-NOW Pressure Display Receiver (v4 - With Statistics)
 
   This sketch runs on the 3.2" ESP32-32E Display Board.
-  It receives pressure data wirelessly via ESP-NOW from the transmitter board
-  and displays it on the ST7789 TFT screen with corrected labels.
-
-  This version fixes a compilation error caused by an updated ESP-NOW library.
+  It receives pressure data wirelessly via ESP-NOW, displays it,
+  and calculates and displays Min, Max, and Average pressure statistics.
+  Includes a touchscreen button to reset the statistics.
 */
 
 #include <esp_now.h>
@@ -13,79 +12,158 @@
 #include <SPI.h>
 #include <TFT_eSPI.h>
 
-// Create an instance of the TFT_eSPI library
+// =========================================================================
+// Configuration
+// =========================================================================
 TFT_eSPI tft = TFT_eSPI();
 
-// Define a data structure to hold the incoming sensor readings.
-// This structure MUST be the same on both the transmitter and receiver.
+// Define the coordinates for the "Reset" button
+#define RESET_BUTTON_X 220
+#define RESET_BUTTON_Y 10
+#define RESET_BUTTON_W 90
+#define RESET_BUTTON_H 40
+// =========================================================================
+
+// Data structure to hold the incoming sensor readings.
 typedef struct struct_message {
   float pressure1;
   float pressure2;
 } struct_message;
 
-// Create a variable to hold the received data
 struct_message sensorReadings;
 
-// Flag to indicate when new data has been received
+// Data structure to hold the statistics for one sensor.
+typedef struct struct_stats {
+  float min = 999.0;
+  float max = 0.0;
+  float total = 0.0;
+  long count = 0;
+} struct_stats;
+
+struct_stats stats1; // For Pre-Solenoid
+struct_stats stats2; // For Post-Solenoid
+
 volatile bool newData = false;
 
-// CORRECTED Callback function that is executed when data is received
+// Function Prototypes
+void updateStats(struct_stats &stats, float newValue);
+void drawStats();
+void resetStats();
+
+// Callback function for receiving data
 void OnDataRecv(const esp_now_recv_info * info, const uint8_t *incomingData, int len) {
-  // We ignore the 'info' and 'mac' parameters for this simple application, but they must be there.
   memcpy(&sensorReadings, incomingData, sizeof(sensorReadings));
-  newData = true; // Set the flag to true
+  updateStats(stats1, sensorReadings.pressure1);
+  updateStats(stats2, sensorReadings.pressure2);
+  newData = true;
 }
 
 void setup() {
   Serial.begin(115200);
 
-  // Initialize the TFT display
   tft.init();
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
+
+  // Draw the static UI elements
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-
+  tft.setTextSize(2);
   tft.setCursor(10, 10);
-  tft.setTextSize(2); // Slightly smaller text for the title
-  tft.println("WMI Pressure Monitor");
-  tft.setTextSize(3); // Larger text for the data
+  tft.print("WMI Pressure Monitor");
 
-  // Set device as a Wi-Fi Station
+  // Draw the reset button
+  tft.drawRect(RESET_BUTTON_X, RESET_BUTTON_Y, RESET_BUTTON_W, RESET_BUTTON_H, TFT_YELLOW);
+  tft.setTextColor(TFT_YELLOW);
+  tft.setCursor(RESET_BUTTON_X + 15, RESET_BUTTON_Y + 12);
+  tft.print("RESET");
+
   WiFi.mode(WIFI_STA);
 
-  // Initialize ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     tft.setCursor(10, 50);
-    tft.println("ESP-NOW Init Failed!");
+    tft.print("ESP-NOW Init Failed!");
     return;
   }
 
-  // Register the receive callback function
   esp_now_register_recv_cb(OnDataRecv);
-
   Serial.println("Receiver setup complete. Waiting for data...");
 }
 
 void loop() {
-  // Check if new data has arrived
-  if (newData) {
-    newData = false; // Reset the flag
-
-    // Display Sensor 1: Pre-Solenoid
-    tft.setCursor(10, 60);
-    tft.print("Pre-Solenoid: ");
-    tft.print(sensorReadings.pressure1, 1);
-    tft.print(" PSI "); // Add units and padding
-
-    // Display Sensor 2: Post-Solenoid
-    tft.setCursor(10, 110);
-    tft.print("Post-Solenoid:");
-    tft.print(sensorReadings.pressure2, 1);
-    tft.print(" PSI ");
-
-    // Print to Serial monitor for debugging
-    Serial.printf("Received Data -> Pre: %.1f PSI, Post: %.1f PSI\n", sensorReadings.pressure1, sensorReadings.pressure2);
+  // Check for touch events to reset stats
+  uint16_t t_x, t_y;
+  if (tft.getTouch(&t_x, &t_y)) {
+    // Check if the touch coordinates are within the button area
+    if (t_x > RESET_BUTTON_X && t_x < (RESET_BUTTON_X + RESET_BUTTON_W) && t_y > RESET_BUTTON_Y && t_y < (RESET_BUTTON_Y + RESET_BUTTON_H)) {
+      resetStats();
+    }
   }
-  // No delay here - we want to update the screen as soon as data arrives.
+
+  // If new data has arrived, update the screen
+  if (newData) {
+    newData = false;
+    drawStats();
+  }
+}
+
+void updateStats(struct_stats &stats, float newValue) {
+  if (newValue < stats.min) stats.min = newValue;
+  if (newValue > stats.max) stats.max = newValue;
+  stats.total += newValue;
+  stats.count++;
+}
+
+void resetStats() {
+  // Reset stats for sensor 1
+  stats1.min = 999.0;
+  stats1.max = 0.0;
+  stats1.total = 0.0;
+  stats1.count = 0;
+  // Reset stats for sensor 2
+  stats2.min = 999.0;
+  stats2.max = 0.0;
+  stats2.total = 0.0;
+  stats2.count = 0;
+
+  // Clear the screen area and redraw
+  tft.fillScreen(TFT_BLACK); // Easiest way to clear everything
+  setup(); // Redraw the static UI elements
+  Serial.println("Statistics have been reset.");
+}
+
+void drawStats() {
+  // --- Display Pre-Solenoid Data ---
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextSize(2);
+  tft.setCursor(10, 50);
+  tft.print("Pre-Solenoid: ");
+  tft.setTextSize(3);
+  tft.print(sensorReadings.pressure1, 1);
+  tft.print(" PSI   "); // Padding
+
+  // --- Display Post-Solenoid Data ---
+  tft.setTextSize(2);
+  tft.setCursor(10, 100);
+  tft.print("Post-Solenoid:");
+  tft.setTextSize(3);
+  tft.print(sensorReadings.pressure2, 1);
+  tft.print(" PSI   "); // Padding
+
+  // --- Display Statistics ---
+  tft.setTextSize(2);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+
+  // Pre-Solenoid Stats
+  tft.setCursor(10, 150);
+  tft.printf("Min:%.1f Max:%.1f Avg:%.1f ", stats1.min == 999.0 ? 0.0 : stats1.min, stats1.max, stats1.count > 0 ? stats1.total/stats1.count : 0.0);
+
+  // Post-Solenoid Stats
+  tft.setCursor(10, 180);
+  tft.printf("Min:%.1f Max:%.1f Avg:%.1f ", stats2.min == 999.0 ? 0.0 : stats2.min, stats2.max, stats2.count > 0 ? stats2.total/stats2.count : 0.0);
+
+  Serial.printf("Pre:%.1f, Post:%.1f | Stats1(Min:%.1f,Max:%.1f,Avg:%.1f) | Stats2(Min:%.1f,Max:%.1f,Avg:%.1f)\n",
+    sensorReadings.pressure1, sensorReadings.pressure2,
+    stats1.min, stats1.max, stats1.total/stats1.count,
+    stats2.min, stats2.max, stats2.total/stats2.count);
 }
