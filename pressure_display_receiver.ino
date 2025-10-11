@@ -67,6 +67,7 @@ void setup() {
   drawUI(); // Draw the static parts of the user interface
 
   WiFi.mode(WIFI_STA);
+  WiFi.setChannel(1);
 
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
