@@ -76,8 +76,8 @@ void setup() {
 
   // Set up the ADC
   analogReadResolution(12);
-  analogSetPinAttenuation(SENSOR1_PIN, ADC_11db);
-  analogSetPinAttenuation(SENSOR2_PIN, ADC_11db);
+  analogSetPinAttenuation(SENSOR1_PIN, ADC_ATTEN_DB_11);
+  analogSetPinAttenuation(SENSOR2_PIN, ADC_ATTEN_DB_11);
 
   Serial.println("Transmitter setup complete. Sending data...");
 }
