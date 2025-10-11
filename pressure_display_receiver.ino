@@ -1,9 +1,11 @@
 /*
-  ESP-NOW Pressure Display Receiver (v2 - Correct Labels)
+  ESP-NOW Pressure Display Receiver (v3 - Corrected Callback)
 
   This sketch runs on the 3.2" ESP32-32E Display Board.
   It receives pressure data wirelessly via ESP-NOW from the transmitter board
   and displays it on the ST7789 TFT screen with corrected labels.
+
+  This version fixes a compilation error caused by an updated ESP-NOW library.
 */
 
 #include <esp_now.h>
@@ -27,8 +29,9 @@ struct_message sensorReadings;
 // Flag to indicate when new data has been received
 volatile bool newData = false;
 
-// Callback function that is executed when data is received
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+// CORRECTED Callback function that is executed when data is received
+void OnDataRecv(const esp_now_recv_info * info, const uint8_t *incomingData, int len) {
+  // We ignore the 'info' and 'mac' parameters for this simple application, but they must be there.
   memcpy(&sensorReadings, incomingData, sizeof(sensorReadings));
   newData = true; // Set the flag to true
 }
