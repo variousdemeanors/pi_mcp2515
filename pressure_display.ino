@@ -72,8 +72,8 @@ void setup() {
 
   // Set the ADC resolution and attenuation for best accuracy on ESP32
   analogReadResolution(12); // 12-bit resolution (0-4095)
-  analogSetPinAttenuation(SENSOR1_PIN, ADC_11db); // For 0-3.3V range
-  analogSetPinAttenuation(SENSOR2_PIN, ADC_11db); // For 0-3.3V range
+  analogSetPinAttenuation(SENSOR1_PIN, ADC_ATTEN_DB_11); // For 0-3.3V range
+  analogSetPinAttenuation(SENSOR2_PIN, ADC_ATTEN_DB_11); // For 0-3.3V range
 }
 
 void loop() {

@@ -52,7 +52,7 @@ void drawData();
 void resetStats();
 
 // Callback function for receiving data
-void OnDataRecv(const esp_now_recv_info * info, const uint8_t *incomingData, int len) {
+void OnDataRecv(const esp_now_recv_info *info, const uint8_t *incomingData, int len) {
   memcpy(&sensorReadings, incomingData, sizeof(sensorReadings));
   updateStats(stats1, sensorReadings.pressure1);
   updateStats(stats2, sensorReadings.pressure2);

@@ -109,6 +109,14 @@ Each device's URL should return a JSON object where the keys are the sensor name
 
 The datalogger will fetch data from each URL in the list during every logging cycle and add all the key-value pairs to the data store. These will then appear as new columns in your CSV file, synchronized with the OBD-II data for that timestamp.
 
+### **Standalone Pressure Sensor Display System**
+
+This repository also includes standalone ESP32 sketches for a wireless pressure sensor monitoring system using ESP-NOW:
+- **`pressure_sensor_transmitter.ino`**: Reads two analog pressure sensors and transmits data wirelessly
+- **`pressure_display_receiver.ino`**: Receives and displays pressure data on a 3.2" TFT screen with statistics
+
+See **[PRESSURE_SENSOR_SETUP.md](PRESSURE_SENSOR_SETUP.md)** for complete setup instructions, hardware configuration, and troubleshooting.
+
 ## **Requirements**
 
 *   Python 3.x
