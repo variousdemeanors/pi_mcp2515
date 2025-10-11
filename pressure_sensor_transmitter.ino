@@ -1,14 +1,11 @@
 /*
-  ESP-NOW Pressure Sensor Transmitter (v2 - Correct Calibration)
+  ESP-NOW Pressure Sensor Transmitter (v3 - Corrected Callbacks)
 
   This sketch runs on the ESP32 WROVER board connected to the two pressure sensors.
   It reads the analog sensors, applies the user-provided calibration formulas,
   and sends the data wirelessly to the display board via ESP-NOW.
 
-  HARDWARE:
-  - ESP32 WROVER Board
-  - Analog Pressure Sensor 1 -> GPIO 34
-  - Analog Pressure Sensor 2 -> GPIO 35
+  This version fixes a compilation error for the send callback function.
 */
 
 #include <esp_now.h>
@@ -43,8 +40,8 @@ float getVoltage(int raw_adc) {
 }
 
 
-// Callback function that is executed when data is sent
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+// CORRECTED Callback function that is executed when data is sent
+void OnDataSent(const uint8_t *mac_addr, const esp_now_send_status_t status) {
   Serial.print("Last Packet Send Status: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
@@ -104,10 +101,7 @@ void loop() {
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sensorReadings, sizeof(sensorReadings));
 
-  if (result == ESP_OK) {
-    Serial.println("Sent with success");
-  }
-  else {
+  if (result != ESP_OK) {
     Serial.println("Error sending the data");
   }
 
