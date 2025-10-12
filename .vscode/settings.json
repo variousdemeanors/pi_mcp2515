@@ -1,0 +1,26 @@
+{
+    // General editor
+    "editor.formatOnSave": true,
+    "files.eol": "\n",
+    "files.trimTrailingWhitespace": true,
+    // Hide large folders
+    "files.exclude": {
+        "**/.pio": true,
+        "**/.venv": true,
+        "**/__pycache__": true,
+        "**/.git": false
+    },
+    // Arduino settings
+    "arduino.disableTestingOpen": true,
+    "arduino.useArduinoCli": true,
+    "arduino.commandPath": "arduino-cli",
+    // Default board (adjust as needed). You can override in the status bar.
+    "arduino.defaultBaudRate": 115200,
+    // Sketchbook to current workspace so libraries/ and data/ are local if used
+    "arduino.sketchbookPath": "${workspaceFolder}",
+    // Serial Monitor
+    "serial-monitor.defaultBaudRate": 115200,
+    "idf.pythonInstallPath": "/home/codespace/.python/current/bin/python",
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": []
+}
