@@ -22,5 +22,10 @@
     "serial-monitor.defaultBaudRate": 115200,
     "idf.pythonInstallPath": "/home/codespace/.python/current/bin/python",
     "python-envs.defaultEnvManager": "ms-python.python:system",
-    "python-envs.pythonProjects": []
+    "python-envs.pythonProjects": [],
+    "files.associations": {
+        "array": "cpp",
+        "string": "cpp",
+        "string_view": "cpp"
+    }
 }
