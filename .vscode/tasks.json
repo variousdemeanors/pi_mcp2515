@@ -52,7 +52,13 @@
                 "-e",
                 "esp32dev-receiver"
             ],
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always"
+            },
             "problemMatcher": [
                 "$gcc"
             ]
@@ -75,7 +81,11 @@
         },
         {
             "label": "PIO: Monitor receiver",
-            "type": "shell",
+            "group": "build",
+            "presentation": {
+                "reveal": "always"
+            },
+            "detail": "Uploads firmware then opens serial monitor at 115200",
             "command": "pio",
             "args": [
                 "device",
@@ -84,6 +94,201 @@
                 "115200"
             ],
             "isBackground": true
+        },
+        {
+            "label": "LVGL: Upload + Monitor receiver",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-t",
+                "upload",
+                "-t",
+                "monitor",
+                "-e",
+                "esp32dev-receiver"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "isBackground": true
+        },
+        {
+            "label": "LVGL: UploadFS receiver (SPIFFS)",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-t",
+                "uploadfs",
+                "-e",
+                "esp32dev-receiver"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Remote: Agent start (local PC)",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "remote",
+                "agent",
+                "start"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Remote: Upload receiver (pre-built)",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "remote",
+                "run",
+                "-t",
+                "upload",
+                "-e",
+                "esp32-receiver-lvgl",
+                "--force-remote"
+            ],
+            "group": "build",
+            "detail": "Force remote upload without local build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Direct: Upload red screen test",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-m",
+                "esptool",
+                "--chip",
+                "esp32",
+                "--port",
+                "COM10",
+                "--baud",
+                "921600",
+                "--before",
+                "default_reset",
+                "--after",
+                "hard_reset",
+                "write_flash",
+                "-z",
+                "--flash_mode",
+                "dio",
+                "--flash_freq",
+                "40m",
+                "--flash_size",
+                "4MB",
+                "0x1000",
+                "firmware_builds/bootloader.bin",
+                "0x8000",
+                "firmware_builds/partitions.bin",
+                "0xe000",
+                "firmware_builds/boot_app0.bin",
+                "0x10000",
+                "firmware_builds/red_screen_test.bin"
+            ],
+            "group": "build",
+            "detail": "Direct esptool upload of pre-built red screen test firmware",
+            "problemMatcher": []
+        },
+        {
+            "label": "Remote: Upload binary only (esptool)",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "remote",
+                "run",
+                "-t",
+                "nobuild",
+                "-t",
+                "upload",
+                "-e",
+                "esp32-receiver-lvgl"
+            ],
+            "group": "build",
+            "detail": "Force upload pre-built binary without building",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "LVGL: Build receiver",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-e",
+                "esp32dev-receiver"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always"
+            },
+            "detail": "Builds the LVGL receiver environment",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Remote: Monitor receiver",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "remote",
+                "device",
+                "monitor",
+                "-b",
+                "115200"
+            ],
+            "isBackground": true
+        },
+        {
+            "label": "Remote: Upload + Monitor receiver",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "remote",
+                "run",
+                "-t",
+                "upload",
+                "-e",
+                "esp32dev-receiver",
+                "--upload-port",
+                "AUTO"
+            ],
+            "group": "build",
+            "detail": "Uploads pre-built firmware then starts monitor",
+            "dependsOn": "LVGL: Build receiver",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Remote: UploadFS receiver (SPIFFS)",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "remote",
+                "run",
+                "-t",
+                "uploadfs",
+                "-e",
+                "esp32dev-receiver",
+                "--upload-port",
+                "AUTO"
+            ],
+            "group": "build",
+            "detail": "Uploads SPIFFS filesystem to ESP32 via remote agent",
+            "problemMatcher": [
+                "$gcc"
+            ]
         }
     ]
 }

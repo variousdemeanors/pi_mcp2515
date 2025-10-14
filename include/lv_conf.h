@@ -28,15 +28,15 @@
 /*Use built-in memory management*/
 #define LV_MEM_CUSTOM 0
 #if LV_MEM_CUSTOM == 0
-    /*Reduced memory size for minimal setup - 16KB should be enough for basic UI*/
-    #define LV_MEM_SIZE (16U * 1024U)          /*[bytes]*/
-    #define LV_MEM_ADR 0     /*0: unused*/
-#else       
-    #define LV_MEM_CUSTOM_INCLUDE <stdlib.h>
-    #define LV_MEM_CUSTOM_ALLOC   malloc
-    #define LV_MEM_CUSTOM_FREE    free
-    #define LV_MEM_CUSTOM_REALLOC realloc
-#endif     
+/*Reduced memory size for minimal setup - 16KB should be enough for basic UI*/
+#define LV_MEM_SIZE (16U * 1024U) /*[bytes]*/
+#define LV_MEM_ADR 0              /*0: unused*/
+#else
+#define LV_MEM_CUSTOM_INCLUDE <stdlib.h>
+#define LV_MEM_CUSTOM_ALLOC malloc
+#define LV_MEM_CUSTOM_FREE free
+#define LV_MEM_CUSTOM_REALLOC realloc
+#endif
 
 /*Reduced buffer count for minimal setup*/
 #define LV_MEM_BUF_MAX_NUM 8
@@ -49,20 +49,20 @@
  *====================*/
 
 /*Default display refresh period*/
-#define LV_DISP_DEF_REFR_PERIOD 30      /*[ms]*/
+#define LV_DISP_DEF_REFR_PERIOD 30 /*[ms]*/
 
 /*Input device read period*/
-#define LV_INDEV_DEF_READ_PERIOD 30     /*[ms]*/
+#define LV_INDEV_DEF_READ_PERIOD 30 /*[ms]*/
 
 /*Use Arduino millis() for timing*/
 #define LV_TICK_CUSTOM 1
 #if LV_TICK_CUSTOM
-    #define LV_TICK_CUSTOM_INCLUDE <Arduino.h>
-    #define LV_TICK_CUSTOM_SYS_TIME_EXPR (millis())
-#endif   
+#define LV_TICK_CUSTOM_INCLUDE <Arduino.h>
+#define LV_TICK_CUSTOM_SYS_TIME_EXPR (millis())
+#endif
 
 /*Default DPI*/
-#define LV_DPI_DEF 130     /*[px/inch]*/
+#define LV_DPI_DEF 130 /*[px/inch]*/
 
 /*====================
  * FEATURE CONFIGURATION
@@ -86,15 +86,17 @@
 #define LV_USE_LOG 0
 
 /*Basic asserts only*/
-#define LV_USE_ASSERT_NULL          1
-#define LV_USE_ASSERT_MALLOC        1
-#define LV_USE_ASSERT_STYLE         0
+#define LV_USE_ASSERT_NULL 1
+#define LV_USE_ASSERT_MALLOC 1
+#define LV_USE_ASSERT_STYLE 0
 #define LV_USE_ASSERT_MEM_INTEGRITY 0
-#define LV_USE_ASSERT_OBJ           0
+#define LV_USE_ASSERT_OBJ 0
 
 /*Halt on assert*/
 #define LV_ASSERT_HANDLER_INCLUDE <stdint.h>
-#define LV_ASSERT_HANDLER while(1);
+#define LV_ASSERT_HANDLER \
+    while (1)             \
+        ;
 
 /*Disable performance monitoring*/
 #define LV_USE_PERF_MONITOR 0
@@ -104,7 +106,7 @@
 /*Use built-in sprintf*/
 #define LV_SPRINTF_CUSTOM 0
 #if LV_SPRINTF_CUSTOM == 0
-    #define LV_SPRINTF_USE_FLOAT 0
+#define LV_SPRINTF_USE_FLOAT 0
 #endif
 
 /*Enable user data*/
@@ -136,10 +138,10 @@
  *=================*/
 
 /*Enable only basic Montserrat fonts*/
-#define LV_FONT_MONTSERRAT_8  0
+#define LV_FONT_MONTSERRAT_8 0
 #define LV_FONT_MONTSERRAT_10 0
 #define LV_FONT_MONTSERRAT_12 0
-#define LV_FONT_MONTSERRAT_14 1  /*Default font*/
+#define LV_FONT_MONTSERRAT_14 1 /*Default font*/
 #define LV_FONT_MONTSERRAT_16 0
 #define LV_FONT_MONTSERRAT_18 0
 #define LV_FONT_MONTSERRAT_20 0
@@ -159,11 +161,11 @@
 #define LV_FONT_MONTSERRAT_48 0
 
 /*Disable special fonts*/
-#define LV_FONT_MONTSERRAT_12_SUBPX      0
+#define LV_FONT_MONTSERRAT_12_SUBPX 0
 #define LV_FONT_MONTSERRAT_28_COMPRESSED 0
 #define LV_FONT_DEJAVU_16_PERSIAN_HEBREW 0
-#define LV_FONT_SIMSUN_16_CJK            0
-#define LV_FONT_UNSCII_8  0
+#define LV_FONT_SIMSUN_16_CJK 0
+#define LV_FONT_UNSCII_8 0
 #define LV_FONT_UNSCII_16 0
 
 /*No custom fonts*/
@@ -195,32 +197,32 @@
  *================*/
 
 /*Enable only essential widgets for minimal setup*/
-#define LV_USE_ARC        0  /*Disable for now*/
-#define LV_USE_BAR        1  /*Basic progress bar*/
-#define LV_USE_BTN        1  /*Basic button*/
-#define LV_USE_BTNMATRIX  0  /*Disable for minimal setup*/
-#define LV_USE_CANVAS     0  /*Disable for minimal setup*/
-#define LV_USE_CHECKBOX   0  /*Disable for minimal setup*/
-#define LV_USE_DROPDOWN   0  /*Disable for minimal setup*/
-#define LV_USE_IMG        1  /*Basic image support*/
-#define LV_USE_LABEL      1  /*Essential for text*/
-#define LV_USE_LINE       0  /*Disable for minimal setup*/
-#define LV_USE_METER      0  /*Disable for now - we'll add back later*/
-#define LV_USE_MSGBOX     0  /*Disable for minimal setup*/
-#define LV_USE_ROLLER     0  /*Disable for minimal setup*/
-#define LV_USE_SLIDER     0  /*Disable for minimal setup*/
-#define LV_USE_SPAN       0  /*Disable for minimal setup*/
-#define LV_USE_SPINBOX    0  /*Disable for minimal setup*/
-#define LV_USE_SPINNER    0  /*Disable for minimal setup*/
-#define LV_USE_SWITCH     0  /*Disable for minimal setup*/
-#define LV_USE_TEXTAREA   0  /*Disable for minimal setup*/
-#define LV_USE_TABLE      0  /*Disable for minimal setup*/
-#define LV_USE_TABVIEW    0  /*Disable for minimal setup*/
-#define LV_USE_TILEVIEW   0  /*Disable for minimal setup*/
-#define LV_USE_WIN        0  /*Disable for minimal setup*/
+#define LV_USE_ARC 0       /*Disable for now*/
+#define LV_USE_BAR 1       /*Basic progress bar*/
+#define LV_USE_BTN 1       /*Basic button*/
+#define LV_USE_BTNMATRIX 0 /*Disable for minimal setup*/
+#define LV_USE_CANVAS 0    /*Disable for minimal setup*/
+#define LV_USE_CHECKBOX 0  /*Disable for minimal setup*/
+#define LV_USE_DROPDOWN 0  /*Disable for minimal setup*/
+#define LV_USE_IMG 1       /*Basic image support*/
+#define LV_USE_LABEL 1     /*Essential for text*/
+#define LV_USE_LINE 0      /*Disable for minimal setup*/
+#define LV_USE_METER 0     /*Disable for now - we'll add back later*/
+#define LV_USE_MSGBOX 0    /*Disable for minimal setup*/
+#define LV_USE_ROLLER 0    /*Disable for minimal setup*/
+#define LV_USE_SLIDER 0    /*Disable for minimal setup*/
+#define LV_USE_SPAN 0      /*Disable for minimal setup*/
+#define LV_USE_SPINBOX 0   /*Disable for minimal setup*/
+#define LV_USE_SPINNER 0   /*Disable for minimal setup*/
+#define LV_USE_SWITCH 0    /*Disable for minimal setup*/
+#define LV_USE_TEXTAREA 0  /*Disable for minimal setup*/
+#define LV_USE_TABLE 0     /*Disable for minimal setup*/
+#define LV_USE_TABVIEW 0   /*Disable for minimal setup*/
+#define LV_USE_TILEVIEW 0  /*Disable for minimal setup*/
+#define LV_USE_WIN 0       /*Disable for minimal setup*/
 
 /* Explicitly disable keyboard to avoid pulling in btnmatrix/textarea deps */
-#define LV_USE_KEYBOARD   0
+#define LV_USE_KEYBOARD 0
 
 /*==================
  * THEME USAGE
@@ -229,9 +231,9 @@
 /*Use simple default theme*/
 #define LV_USE_THEME_DEFAULT 1
 #if LV_USE_THEME_DEFAULT
-    #define LV_THEME_DEFAULT_DARK 0  /*Light mode*/
-    #define LV_THEME_DEFAULT_GROW 0  /*No grow animation*/
-    #define LV_THEME_DEFAULT_TRANSITION_TIME 0  /*No transitions*/
+#define LV_THEME_DEFAULT_DARK 0            /*Light mode*/
+#define LV_THEME_DEFAULT_GROW 0            /*No grow animation*/
+#define LV_THEME_DEFAULT_TRANSITION_TIME 0 /*No transitions*/
 #endif
 
 /*Disable other themes*/
@@ -279,8 +281,8 @@
 #define LV_USE_IME_PINYIN 0
 
 /*==================
-* EXAMPLES
-*================*/
+ * EXAMPLES
+ *================*/
 
 /*Disable all examples and demos*/
 #define LV_BUILD_EXAMPLES 0

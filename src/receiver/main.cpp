@@ -3,7 +3,7 @@
 // Include the LVGL-based receiver sketch
 /*
  * Minimal LVGL ST7789 Display Test
- * 
+ *
  * This is a basic test to verify LVGL works with ST7789 display.
  * Once this works, we can gradually add more features.
  */
@@ -17,12 +17,12 @@
 // Display and LVGL setup
 TFT_eSPI tft = TFT_eSPI(); // TFT instance
 static lv_disp_draw_buf_t draw_buf;
-// Use explicit width for buffer lines (landscape 320x240)
-static lv_color_t buf[320 * 10]; // Buffer for 10 lines
+static lv_color_t *buf = nullptr; // Will allocate dynamically based on resolution
 static lv_disp_drv_t disp_drv;
 
 // Pressure data structure (from ESP-NOW)
-typedef struct {
+typedef struct
+{
   float pressure;
   bool valid;
   unsigned long timestamp;
@@ -41,13 +41,16 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len);
 void create_ui();
 void update_ui();
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   Serial.println("Starting Minimal LVGL ST7789 Test...");
 
   // Initialize display
   tft.init();
-  tft.setRotation(1); // Landscape mode, adjust as needed
+  // Panel is 240x320 (portrait). Use rotation(0) to match native orientation.
+  // Change to setRotation(1) if you prefer landscape UI.
+  tft.setRotation(0);
 
   // Turn on backlight
   pinMode(27, OUTPUT); // TFT_BL pin
@@ -58,13 +61,29 @@ void setup() {
   // Initialize LVGL
   lv_init();
 
+  // Determine resolution from TFT after rotation
+  uint16_t hor = tft.width();   // expected 240 in portrait
+  uint16_t ver = tft.height();  // expected 320 in portrait
+  Serial.printf("TFT resolution: %ux%u\n", hor, ver);
+
+  // Allocate draw buffer for 10 lines
+  size_t lines = 10;
+  size_t buf_pixels = (size_t)hor * lines;
+  buf = (lv_color_t *)malloc(buf_pixels * sizeof(lv_color_t));
+  if (!buf) {
+    Serial.println("ERROR: LVGL draw buffer allocation failed");
+    while (true) {
+      delay(1000);
+    }
+  }
+
   // Initialize the display buffer
-  lv_disp_draw_buf_init(&draw_buf, buf, NULL, 320 * 10);
+  lv_disp_draw_buf_init(&draw_buf, buf, NULL, hor * lines);
 
   // Initialize the display driver
   lv_disp_drv_init(&disp_drv);
-  disp_drv.hor_res = 320;  // ST7789 width in landscape
-  disp_drv.ver_res = 240;  // ST7789 height in landscape
+  disp_drv.hor_res = hor; // 240 in portrait
+  disp_drv.ver_res = ver; // 320 in portrait
   disp_drv.flush_cb = my_disp_flush;
   disp_drv.draw_buf = &draw_buf;
   lv_disp_drv_register(&disp_drv);
@@ -73,7 +92,8 @@ void setup() {
 
   // Setup ESP-NOW for receiving pressure data
   WiFi.mode(WIFI_STA);
-  if (esp_now_init() != ESP_OK) {
+  if (esp_now_init() != ESP_OK)
+  {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
@@ -87,48 +107,54 @@ void setup() {
   Serial.println("UI created, starting main loop");
 }
 
-void loop() {
+void loop()
+{
   lv_timer_handler(); // Handle LVGL tasks
   delay(5);
-  
+
   // Update UI every second
   static unsigned long last_update = 0;
-  if (millis() - last_update > 1000) {
+  if (millis() - last_update > 1000)
+  {
     update_ui();
     last_update = millis();
   }
 }
 
 // Display flush callback for LVGL
-void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
+void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+{
   uint32_t w = (area->x2 - area->x1 + 1);
   uint32_t h = (area->y2 - area->y1 + 1);
 
   tft.startWrite();
   tft.setAddrWindow(area->x1, area->y1, w, h);
-  tft.pushColors((uint16_t*)&color_p->full, w * h, true);
+  tft.pushColors((uint16_t *)&color_p->full, w * h, true);
   tft.endWrite();
 
   lv_disp_flush_ready(disp);
 }
 
 // ESP-NOW receive callback
-void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  if (len == sizeof(float)) {
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
+{
+  if (len == sizeof(float))
+  {
     float received_pressure;
     memcpy(&received_pressure, incomingData, sizeof(float));
-    
+
     pressure_data.pressure = received_pressure;
     pressure_data.valid = true;
     pressure_data.timestamp = millis();
-    
+
     Serial.print("Received pressure: ");
     Serial.println(received_pressure);
   }
 }
 
 // Create simple UI
-void create_ui() {
+void create_ui()
+{
   // Create main screen
   lv_obj_t *scr = lv_scr_act();
   lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
@@ -139,7 +165,7 @@ void create_ui() {
   lv_obj_set_style_text_color(title, lv_color_white(), 0);
   lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
 
-  // Pressure value label  
+  // Pressure value label
   pressure_label = lv_label_create(scr);
   lv_label_set_text(pressure_label, "--- PSI");
   lv_obj_set_style_text_color(pressure_label, lv_color_white(), 0);
@@ -161,26 +187,35 @@ void create_ui() {
 }
 
 // Update UI with current data
-void update_ui() {
+void update_ui()
+{
   // Update pressure display
-  if (pressure_data.valid && (millis() - pressure_data.timestamp < 5000)) {
+  if (pressure_data.valid && (millis() - pressure_data.timestamp < 5000))
+  {
     // Data is recent
     char pressure_text[32];
     snprintf(pressure_text, sizeof(pressure_text), "%.1f PSI", pressure_data.pressure);
     lv_label_set_text(pressure_label, pressure_text);
-    
+
     // Update pressure label color based on value
-    if (pressure_data.pressure < 10.0) {
+    if (pressure_data.pressure < 10.0)
+    {
       lv_obj_set_style_text_color(pressure_label, lv_color_hex(0xFF0000), 0); // Red - low
-    } else if (pressure_data.pressure > 30.0) {
-      lv_obj_set_style_text_color(pressure_label, lv_color_hex(0xFF8000), 0); // Orange - high  
-    } else {
+    }
+    else if (pressure_data.pressure > 30.0)
+    {
+      lv_obj_set_style_text_color(pressure_label, lv_color_hex(0xFF8000), 0); // Orange - high
+    }
+    else
+    {
       lv_obj_set_style_text_color(pressure_label, lv_color_hex(0x00FF00), 0); // Green - normal
     }
-    
+
     lv_label_set_text(status_label, "Data OK");
     lv_obj_set_style_text_color(status_label, lv_color_hex(0x00FF00), 0);
-  } else {
+  }
+  else
+  {
     // No recent data
     lv_label_set_text(pressure_label, "--- PSI");
     lv_obj_set_style_text_color(pressure_label, lv_color_white(), 0);
