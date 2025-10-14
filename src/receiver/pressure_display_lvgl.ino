@@ -1,16 +1,16 @@
 /*
-  ESP-NOW Pressure Display Receiver with LVGL (v6 - LVGL VERSION)
+ESP-NOW Pressure Display Receiver with LVGL (v6 - LVGL VERSION)
 
-  This sketch runs on the 3.2" ESP32-32E Display Board.
-  It receives pressure data wirelessly via ESP-NOW and displays it using LVGL
-  with automotive-style gauges and modern UI elements.
+This sketch runs on the 3.2" ESP32-32E Display Board.
+It receives pressure data wirelessly via ESP-NOW and displays it using LVGL
+with automotive-style gauges and modern UI elements.
 
-  Features:
-  - LVGL-based UI with arc gauges and styled buttons
-  - Smooth animations and modern visual design
-  - Automotive-inspired color gradients (green → yellow → red)
-  - Touch-responsive buttons with haptic feedback
-  - Statistics panel with professional layout
+Features:
+- LVGL-based UI with arc gauges and styled buttons
+- Smooth animations and modern visual design
+- Automotive-inspired color gradients (green → yellow → red)
+- Touch-responsive buttons with haptic feedback
+- Statistics panel with professional layout
 */
 
 #include <esp_now.h>
@@ -22,6 +22,7 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include <lvgl.h>
+#include "background_image.h"
 
 // Forward declarations for cross-references used early
 lv_color_t gaugeColor(float value, float min_val, float max_val);
@@ -42,7 +43,7 @@ TFT_eSPI tft = TFT_eSPI();
 #define GAUGE_MAX_PSI 200.0f
 
 // LVGL display buffer
-#define LVGL_BUFFER_SIZE (320 * 240 / 10)
+#define LVGL_BUFFER_SIZE (320 * 240 / 20) // Reduced buffer size
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf[LVGL_BUFFER_SIZE];
 
@@ -277,6 +278,15 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
 
 void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
 {
+  static unsigned long lastTouchCheck = 0;
+
+  // Debug output every few seconds to verify function is being called
+  if (millis() - lastTouchCheck > 5000)
+  {
+    lastTouchCheck = millis();
+    Serial.println("🔍 Touch function being called...");
+  }
+
   uint16_t touchX, touchY;
   bool touched = tft.getTouch(&touchX, &touchY);
 
@@ -285,6 +295,9 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
     data->state = LV_INDEV_STATE_PR;
     data->point.x = touchX;
     data->point.y = touchY;
+
+    // Debug output
+    Serial.printf("Touch detected: X=%d, Y=%d\n", touchX, touchY);
   }
   else
   {
@@ -396,8 +409,10 @@ lv_color_t gaugeColor(float value, float min_val, float max_val)
 static void btn_page_event_handler(lv_event_t *e)
 {
   lv_event_code_t code = lv_event_get_code(e);
+  Serial.printf("🔘 Page button event: %d\n", code);
   if (code == LV_EVENT_CLICKED)
   {
+    Serial.println("🔄 Page button clicked!");
     currentPage = (currentPage == 0) ? 1 : 0;
     if (currentPage == 0)
     {
@@ -410,6 +425,19 @@ static void btn_page_event_handler(lv_event_t *e)
       lv_label_set_text(label_btn_page, "LIVE");
     }
     Serial.printf("📄 Switched to %s page\n", currentPage == 0 ? "LIVE" : "STATS");
+  }
+}
+
+static void btn_reset_event_handler(lv_event_t *e)
+{
+  lv_event_code_t code = lv_event_get_code(e);
+  Serial.printf("🔘 Reset button event: %d\n", code);
+  if (code == LV_EVENT_CLICKED)
+  {
+    Serial.println("🔄 Reset button clicked!");
+    // Reset statistics
+    resetStatistics();
+    Serial.println("📊 Statistics reset");
   }
 }
 
@@ -431,7 +459,20 @@ static void btn_reset_event_handler(lv_event_t *e)
 void createLiveScreen()
 {
   scr_live = lv_obj_create(NULL);
-  lv_obj_set_style_bg_color(scr_live, lv_color_black(), 0);
+
+  // Set background - use loaded image if available, otherwise solid color
+  if (BackgroundImageLoader::isLoaded())
+  {
+    lv_obj_t *bg_img = lv_img_create(scr_live);
+    lv_img_set_src(bg_img, BackgroundImageLoader::getBackground());
+    lv_obj_center(bg_img);
+    lv_obj_move_background(bg_img); // Move image to background layer
+    Serial.println("✅ Applied background image to live screen");
+  }
+  else
+  {
+    lv_obj_set_style_bg_color(scr_live, lv_color_black(), 0);
+  }
 
   // Pre-Solenoid Gauge
   arc_pre = lv_arc_create(scr_live);
@@ -494,7 +535,20 @@ void createLiveScreen()
 void createStatsScreen()
 {
   scr_stats = lv_obj_create(NULL);
-  lv_obj_set_style_bg_color(scr_stats, lv_color_black(), 0);
+
+  // Set background - use loaded image if available, otherwise solid color
+  if (BackgroundImageLoader::isLoaded())
+  {
+    lv_obj_t *bg_img = lv_img_create(scr_stats);
+    lv_img_set_src(bg_img, BackgroundImageLoader::getBackground());
+    lv_obj_center(bg_img);
+    lv_obj_move_background(bg_img); // Move image to background layer
+    Serial.println("✅ Applied background image to stats screen");
+  }
+  else
+  {
+    lv_obj_set_style_bg_color(scr_stats, lv_color_black(), 0);
+  }
 
   // Title
   lv_obj_t *title = lv_label_create(scr_stats);
@@ -579,9 +633,30 @@ void updateLiveDisplay()
   lv_label_set_text_fmt(label_pre_value, "%.1f", sensorReadings.pressure1);
   lv_label_set_text_fmt(label_post_value, "%.1f", sensorReadings.pressure2);
 
-  // Update status
-  lv_label_set_text_fmt(label_status, "Packet #%u | Received: %u | Lost: %u",
-                        sensorReadings.packet_id, totalPacketsReceived, missedPackets);
+  // Calculate uptime in a more readable format
+  unsigned long uptime_ms = millis();
+  unsigned long uptime_sec = uptime_ms / 1000;
+  unsigned long uptime_min = uptime_sec / 60;
+  unsigned long uptime_hr = uptime_min / 60;
+
+  // Update status with proper uptime formatting
+  if (uptime_hr > 0)
+  {
+    lv_label_set_text_fmt(label_status, "Packet #%u | Received: %u | Lost: %u | Uptime: %luh%lum",
+                          sensorReadings.packet_id, totalPacketsReceived, missedPackets,
+                          uptime_hr, uptime_min % 60);
+  }
+  else if (uptime_min > 0)
+  {
+    lv_label_set_text_fmt(label_status, "Packet #%u | Received: %u | Lost: %u | Uptime: %lum%lus",
+                          sensorReadings.packet_id, totalPacketsReceived, missedPackets,
+                          uptime_min, uptime_sec % 60);
+  }
+  else
+  {
+    lv_label_set_text_fmt(label_status, "Packet #%u | Received: %u | Lost: %u | Uptime: %lus",
+                          sensorReadings.packet_id, totalPacketsReceived, missedPackets, uptime_sec);
+  }
 }
 
 void updateStatsDisplay()
@@ -619,6 +694,12 @@ void setup()
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
 
+  // Calibrate touch (you may need to adjust these values for your display)
+  // These are typical values for ST7789 displays, but may need tweaking
+  uint16_t calData[5] = {275, 3620, 264, 3532, 1};
+  tft.setTouch(calData);
+  Serial.println("📱 Touch calibration set");
+
   // Initialize LVGL
   lv_init();
 
@@ -654,6 +735,17 @@ void setup()
     Serial.println("⚠️  SPIFFS mount failed");
   }
 
+  // Load background image from SPIFFS
+  Serial.println("📷 Loading background image from SPIFFS...");
+  if (BackgroundImageLoader::loadBackground())
+  {
+    Serial.println("✅ Background image loaded successfully");
+  }
+  else
+  {
+    Serial.println("⚠️  Background image not found or failed to load - using solid background");
+  }
+
   // Initialize WiFi
   WiFi.mode(WIFI_STA);
   printMacAddress();
@@ -685,15 +777,19 @@ void setup()
     Serial.println("✅ Receive callback registered");
   }
 
-  // Create LVGL UI
-  createLiveScreen();
-  createStatsScreen();
+  // ULTRA SIMPLE TEST - JUST FILL SCREEN RED
+  Serial.println("🔨 Creating VERY simple test - filling screen RED...");
 
-  // Load live screen initially
-  lv_scr_load(scr_live);
-  createButtons();
+  // Skip LVGL entirely, just use TFT directly
+  tft.fillScreen(TFT_RED);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(3);
+  tft.drawString("NEW FIRMWARE", 50, 100);
+  tft.drawString("LOADED!", 80, 140);
 
-  Serial.println("📡 LVGL Receiver ready. Waiting for data...\n");
+  Serial.println("✅ Red screen test created");
+
+  Serial.println("📡 TEST Receiver ready. Starting main loop...\n");
   lastDataTime = millis(); // Initialize timeout timer
 }
 
@@ -703,32 +799,17 @@ void setup()
 
 void loop()
 {
-  // Handle LVGL tasks
-  lv_timer_handler();
+  // ULTRA SIMPLE TEST - NO LVGL CALLS
+  static uint32_t loop_counter = 0;
+  loop_counter++;
 
-  // Check for data timeout
-  if (millis() - lastDataTime > DATA_TIMEOUT_MS)
+  // Debug output every 1000 iterations
+  if (loop_counter % 1000 == 0)
   {
-    if (!data_timeout)
-    {
-      data_timeout = true;
-      Serial.println("⚠️  Data timeout - no packets received recently");
-    }
+    Serial.printf("🔄 BASIC Loop running: %u iterations, uptime: %lu seconds\n",
+                  loop_counter, millis() / 1000);
   }
 
-  // If new data has arrived, update the displays
-  if (newData)
-  {
-    newData = false;
-    if (currentPage == 0)
-    {
-      updateLiveDisplay();
-    }
-    else
-    {
-      updateStatsDisplay();
-    }
-  }
-
-  delay(5); // Small delay for LVGL
+  delay(5); // Just delay, no LVGL
+}
 }

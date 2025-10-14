@@ -1,0 +1,139 @@
+#define LCD_W 240
+#define LCD_H 320
+
+void LCD_RESET(void)
+{
+    LCD_RST_CLR;
+    delay_ms(20);
+    LCD_RST_SET;
+    delay_ms(20);
+}
+
+void LCD_direction(u8 direction)
+{
+    lcddev.setxcmd = 0x2A;
+    lcddev.setycmd = 0x2B;
+    lcddev.wramcmd = 0x2C;
+    lcddev.rramcmd = 0x2E;
+    lcddev.dir = direction % 4;
+    switch (lcddev.dir)
+    {
+    case 0:
+        lcddev.width = LCD_W;
+        lcddev.height = LCD_H;
+        LCD_WriteReg(0x36, 0); // BGR==1,MY==0,MX==0,MV==0
+        break;
+    case 1:
+        lcddev.width = LCD_H;
+        lcddev.height = LCD_W;
+        LCD_WriteReg(0x36, (1 << 6) | (1 << 5)); // BGR==1,MY==1,MX==0,MV==1
+        break;
+    case 2:
+        lcddev.width = LCD_W;
+        lcddev.height = LCD_H;
+        ;
+        LCD_WriteReg(0x36, (1 << 6) | (1 << 7)); // BGR==1,MY==0,MX==0,MV==0
+        break;
+    case 3:
+        lcddev.width = LCD_H;
+        lcddev.height = LCD_W;
+        LCD_WriteReg(0x36, (1 << 7) | (1 << 5)); // BGR==1,MY==1,MX==0,MV==1
+        break;
+    default:
+        break;
+    }
+}
+
+void LCD_Init(void)
+{
+    LCD_RESET(); // LCD ¸´Î»
+    //*************3.2 ST7789 IPS³õÊ¼»¯**********//
+
+    LCD_WR_REG(0x36);
+    LCD_WR_DATA(0x00);
+
+    LCD_WR_REG(0x3A);
+    LCD_WR_DATA(0x05);
+
+    LCD_WR_REG(0xB2);
+    LCD_WR_DATA(0x0C);
+    LCD_WR_DATA(0x0C);
+    LCD_WR_DATA(0x00);
+    LCD_WR_DATA(0x33);
+    LCD_WR_DATA(0x33);
+
+    LCD_WR_REG(0xB7);
+    LCD_WR_DATA(0x74); // VGH=14.97V,VGL=-7.67V
+
+    LCD_WR_REG(0xBB);
+    LCD_WR_DATA(0x13);
+
+    LCD_WR_REG(0xC0);
+    LCD_WR_DATA(0x2C);
+
+    LCD_WR_REG(0xC2);
+    LCD_WR_DATA(0x01);
+
+    LCD_WR_REG(0xC3);
+    LCD_WR_DATA(0x10);
+
+    LCD_WR_REG(0xC4);
+    LCD_WR_DATA(0x20);
+
+    LCD_WR_REG(0xC6);
+    LCD_WR_DATA(0x0F);
+
+    LCD_WR_REG(0xD0);
+    LCD_WR_DATA(0xA4);
+    LCD_WR_DATA(0xA1);
+
+    LCD_WR_REG(0xD6);
+    LCD_WR_DATA(0xA1);
+
+    LCD_WR_REG(0xE0);
+    LCD_WR_DATA(0xD0);
+    LCD_WR_DATA(0x07);
+    LCD_WR_DATA(0x0E);
+    LCD_WR_DATA(0x0B);
+    LCD_WR_DATA(0x0A);
+    LCD_WR_DATA(0x14);
+    LCD_WR_DATA(0x38);
+    LCD_WR_DATA(0x33);
+    LCD_WR_DATA(0x4F);
+    LCD_WR_DATA(0x37);
+    LCD_WR_DATA(0x16);
+    LCD_WR_DATA(0x16);
+    LCD_WR_DATA(0x2A);
+    LCD_WR_DATA(0x2E);
+
+    LCD_WR_REG(0xE1);
+    LCD_WR_DATA(0xD0);
+    LCD_WR_DATA(0x0B);
+    LCD_WR_DATA(0x10);
+    LCD_WR_DATA(0x08);
+    LCD_WR_DATA(0x08);
+    LCD_WR_DATA(0x06);
+    LCD_WR_DATA(0x35);
+    LCD_WR_DATA(0x54);
+    LCD_WR_DATA(0x4D);
+    LCD_WR_DATA(0x0A);
+    LCD_WR_DATA(0x14);
+    LCD_WR_DATA(0x14);
+    LCD_WR_DATA(0x2C);
+    LCD_WR_DATA(0x2F);
+
+    LCD_WR_REG(0xE9);
+    LCD_WR_DATA(0x11);
+    LCD_WR_DATA(0x11);
+    LCD_WR_DATA(0x03);
+
+    LCD_WR_REG(0x21);
+
+    LCD_WR_REG(0x11);
+
+    delay(120);
+    LCD_WR_REG(0x29);
+
+    LCD_WR_REG(0x2C);
+    LCD_direction(USE_HORIZONTAL); // ÉèÖÃLCDÏÔÊ¾·½Ïò
+}

@@ -62,17 +62,19 @@ void setup()
   lv_init();
 
   // Determine resolution from TFT after rotation
-  uint16_t hor = tft.width();   // expected 240 in portrait
-  uint16_t ver = tft.height();  // expected 320 in portrait
+  uint16_t hor = tft.width();  // expected 240 in portrait
+  uint16_t ver = tft.height(); // expected 320 in portrait
   Serial.printf("TFT resolution: %ux%u\n", hor, ver);
 
   // Allocate draw buffer for 10 lines
   size_t lines = 10;
   size_t buf_pixels = (size_t)hor * lines;
   buf = (lv_color_t *)malloc(buf_pixels * sizeof(lv_color_t));
-  if (!buf) {
+  if (!buf)
+  {
     Serial.println("ERROR: LVGL draw buffer allocation failed");
-    while (true) {
+    while (true)
+    {
       delay(1000);
     }
   }
