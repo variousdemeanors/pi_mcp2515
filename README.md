@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ESP32 LVGL Automotive Dashboard
 
 A complete ESP32-based automotive pressure monitoring system with LVGL touch interface and ESP-NOW wireless communication.
@@ -144,3 +145,6 @@ This project demonstrates:
 - Remote development workflow (Codespace → local ESP32)
 - Automotive-style dashboard design
 - Real-time sensor monitoring and display
+=======
+LVGL Port
+>>>>>>> 32263cd45bfc211cdf8535048ff2c2b7ebe17ed9
