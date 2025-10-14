@@ -20,11 +20,12 @@ void setup()
 
     bootTime = millis();
 
-    Serial.println("\n🚨🚨🚨 MINIMAL TEST FIRMWARE v3.0 🚨🚨🚨");
+    Serial.println("\n🚨🚨🚨 MINIMAL TEST FIRMWARE v4.0 🚨🚨🚨");
     Serial.println("==============================================");
     Serial.println("🔴 This is DEFINITELY the NEW test firmware!");
     Serial.println("💥 Screen should be BLINKING RED/BLUE");
     Serial.println("📡 This message proves NEW firmware running!");
+    Serial.println("🆕 FRESH REPOSITORY - CLEAN ENVIRONMENT!");
     Serial.println("==============================================");
 
     // Initialize display
@@ -35,9 +36,11 @@ void setup()
     tft.fillScreen(TFT_RED);
     tft.setTextColor(TFT_WHITE, TFT_RED);
     tft.setTextSize(3);
-    tft.drawString("NEW TEST", 70, 70);
-    tft.drawString("FIRMWARE", 50, 110);
-    tft.drawString("BLINKING!", 40, 150);
+    tft.drawString("NEW REPO", 70, 50);
+    tft.drawString("CLEAN ENV", 50, 90);
+    tft.drawString("BLINKING!", 40, 130);
+    tft.setTextSize(2);
+    tft.drawString("Fresh Start!", 80, 170);
 
     Serial.println("✅ Minimal test setup completed - should see blinking!");
 }
@@ -55,11 +58,12 @@ void loop()
             tft.fillScreen(TFT_BLUE);
             tft.setTextColor(TFT_WHITE, TFT_BLUE);
             tft.setTextSize(3);
-            tft.drawString("BLUE MODE", 60, 70);
-            tft.drawString("WORKING!", 70, 110);
+            tft.drawString("BLUE MODE", 60, 50);
+            tft.drawString("WORKING!", 70, 90);
+            tft.setTextSize(2);
+            tft.drawString("Clean Repo!", 80, 130);
 
             unsigned long uptime = (currentTime - bootTime) / 1000;
-            tft.setTextSize(2);
             String uptimeStr = "UP: " + String(uptime) + "s";
             tft.drawString(uptimeStr, 10, 200);
 
@@ -71,11 +75,12 @@ void loop()
             tft.fillScreen(TFT_RED);
             tft.setTextColor(TFT_WHITE, TFT_RED);
             tft.setTextSize(3);
-            tft.drawString("RED MODE", 70, 70);
-            tft.drawString("WORKING!", 70, 110);
+            tft.drawString("RED MODE", 70, 50);
+            tft.drawString("WORKING!", 70, 90);
+            tft.setTextSize(2);
+            tft.drawString("Fresh Start!", 80, 130);
 
             unsigned long uptime = (currentTime - bootTime) / 1000;
-            tft.setTextSize(2);
             String uptimeStr = "UP: " + String(uptime) + "s";
             tft.drawString(uptimeStr, 10, 200);
 
@@ -91,7 +96,7 @@ void loop()
     if (currentTime - lastStatus >= 2000)
     {
         unsigned long uptime = (currentTime - bootTime) / 1000;
-        Serial.println("💥 MINIMAL TEST FIRMWARE ACTIVE - Uptime: " + String(uptime) + "s");
+        Serial.println("💥 FRESH REPO TEST FIRMWARE ACTIVE - Uptime: " + String(uptime) + "s");
         lastStatus = currentTime;
     }
 
