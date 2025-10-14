@@ -1,117 +1,146 @@
-# LVGL Display Dashboard
+# ESP32 LVGL Automotive Dashboard
 
-A complete ESP32-based automotive pressure monitoring system with LVGL touchscreen interface.
+A complete ESP32-based automotive pressure monitoring system with LVGL touch interface and ESP-NOW wireless communication.
 
-## Features
+## 🎯 Features
 
-- **LVGL-based Touch Interface**: Modern automotive-style gauges and controls
-- **ESP-NOW Wireless Communication**: Real-time pressure data transmission
-- **Dual Pressure Monitoring**: Pre-solenoid and post-solenoid pressure sensors
-- **Touch-responsive Controls**: Navigate between live data and statistics screens
-- **Working Uptime Counter**: Proper system timing and status display
-- **Clean Architecture**: Fresh repository with optimized configurations
+- **Touch-Responsive Dashboard**: Dual pressure gauges with LVGL interface
+- **Wireless Communication**: ESP-NOW between transmitter and receiver
+- **ST7789 Display**: 320x240 LCD with landscape orientation
+- **Real-time Monitoring**: Live pressure readings with visual gauges
+- **Automotive Styling**: Professional dashboard appearance
+- **PlatformIO Remote**: Develop in Codespace, upload to local ESP32
 
-## Hardware Requirements
+## 🏗️ Project Structure
 
-### Receiver (Display Unit)
-- ESP32 development board
-- 3.2" TFT display with ST7789 driver
-- Touch screen interface
-- Pin configuration:
-  - TFT_CS: GPIO 15
-  - TFT_DC: GPIO 2
-  - TFT_SCLK: GPIO 14
-  - TFT_MOSI: GPIO 13
-  - TFT_MISO: GPIO 12
-  - TFT_BL: GPIO 27
-  - TOUCH_CS: GPIO 33
-
-### Transmitter (Sensor Unit)
-- ESP32 development board
-- Pressure sensors (analog or I2C)
-- Power supply
-
-## Quick Start
-
-### 1. Clone Repository
-```bash
-git clone https://github.com/variousdemeanors/LVGL-display-dashboard.git
-cd LVGL-display-dashboard
-```
-
-### 2. Build and Upload
-
-#### Option A: Direct Upload (Recommended)
-Use pre-built firmware for immediate testing:
-
-**Minimal Test (Blinking Screen)**:
-- Run task: "Direct: Upload minimal test"
-- Should see RED/BLUE blinking screen with uptime counter
-
-**Full LVGL Dashboard**:
-- Run task: "Direct: Upload LVGL receiver"
-- Complete automotive dashboard with touch interface
-
-#### Option B: Build from Source
-```bash
-# Build receiver
-pio run -e esp32dev-receiver
-
-# Upload receiver
-pio run -t upload -e esp32dev-receiver
-
-# Monitor serial output
-pio device monitor -b 115200
-```
-
-### 3. Setup Transmitter
-```bash
-# Build and upload transmitter
-pio run -t upload -e esp32dev-transmitter
-```
-
-## Development
-
-### Project Structure
 ```
 src/
-├── receiver/           # LVGL display firmware
-│   └── main.cpp       # Complete automotive dashboard
-├── transmitter/       # Sensor data transmitter
-│   └── main.cpp       # ESP-NOW data sender
-└── test_minimal/      # Simple test firmware
-    └── main.cpp       # Blinking verification test
+├── test_minimal/          # Minimal blinking test for upload verification
+├── transmitter/           # ESP-NOW pressure data transmitter
+└── receiver/              # LVGL dashboard receiver with touch interface
+
+firmware_builds/           # Pre-built binaries for direct upload
+├── minimal_test.bin       # Blinking test firmware
+├── lvgl_receiver.bin      # Complete dashboard firmware
+├── bootloader.bin         # ESP32 bootloader
+├── partitions.bin         # Partition table
+└── boot_app0.bin          # Boot application
+
+.vscode/tasks.json         # VS Code build/upload tasks
+platformio.ini             # PlatformIO configuration
+lv_conf.h                  # LVGL configuration
 ```
 
-### Configuration
-- **platformio.ini**: Complete build configuration with optimized LVGL settings
-- **tasks.json**: VS Code tasks for building and direct firmware upload
-- Pin assignments and display settings pre-configured for ESP32 display boards
+## 🚀 Quick Start
 
-### Features
-- **Touch Calibration**: Pre-configured for ST7789 displays
-- **LVGL Integration**: Full v8.x support with custom automotive theme
-- **ESP-NOW Protocol**: Reliable wireless sensor communication
-- **Statistics Tracking**: Min/max/average pressure monitoring
-- **Status Indicators**: Connection status and system uptime
+### 1. Hardware Setup
+- **ESP32 DevKit** (receiver with display)
+- **ST7789 320x240 LCD** with touch
+- **ESP32 DevKit** (transmitter with pressure sensors)
 
-## Troubleshooting
+### 2. Display Wiring (ST7789)
+```
+ESP32    →    ST7789
+GPIO 23  →    MOSI (SDA)
+GPIO 18  →    SCLK (SCL)
+GPIO 2   →    DC
+GPIO 15  →    CS
+GPIO 4   →    RST
+3.3V     →    VCC
+GND      →    GND
+```
+
+### 3. Upload Verification Test
+
+**Always test upload mechanism first:**
+- Run task: `Direct: Upload minimal test`
+- **Expected**: Red/blue blinking with "NEW REPO" messages
+- **Confirms**: Upload mechanism working properly
+
+### 4. Deploy Dashboard
+
+**Once minimal test works:**
+- Run task: `Direct: Upload LVGL receiver`
+- **Expected**: Complete automotive dashboard with touch gauges
+
+## 📋 Available Tasks
+
+### Build Tasks
+- `PIO: Build minimal test` - Compile blinking test
+- `PIO: Build receiver` - Compile LVGL dashboard
+- `PIO: Build transmitter` - Compile pressure transmitter
+
+### Upload Tasks  
+- `Direct: Upload minimal test` - Upload blinking verification
+- `Direct: Upload LVGL receiver` - Upload complete dashboard
+- `PIO: Upload transmitter` - Upload pressure transmitter
+
+### Development
+- `PIO: Monitor` - Serial monitor at 115200 baud
+
+## 🔧 PlatformIO Environments
+
+- **minimal-test**: Simple blinking verification firmware
+- **esp32dev-receiver**: Complete LVGL automotive dashboard  
+- **esp32dev-transmitter**: ESP-NOW pressure data transmitter
+
+## 📡 ESP-NOW Communication
+
+The system uses ESP-NOW for wireless communication between transmitter and receiver:
+
+- **Transmitter**: Reads pressure sensors, sends data via ESP-NOW
+- **Receiver**: Receives pressure data, displays on LVGL dashboard
+- **Real-time**: Low latency wireless communication for live updates
+
+## 🎨 Dashboard Features
+
+- **Dual Pressure Gauges**: Primary and secondary pressure displays
+- **Touch Interface**: Interactive gauges respond to touch
+- **Automotive Styling**: Professional dashboard appearance  
+- **Live Updates**: Real-time pressure readings from transmitter
+- **Status Indicators**: Connection status and data freshness
+
+## 🐛 Troubleshooting
 
 ### Upload Issues
-1. Use "Direct: Upload minimal test" first to verify upload mechanism
-2. Check COM port in tasks.json (default: COM10)
-3. Ensure ESP32 is in download mode
+1. **Test minimal firmware first** - Verify upload mechanism works
+2. **Check COM port** - Update port in `.vscode/tasks.json`
+3. **Use direct upload tasks** - Bypass build dependencies
+4. **Try different baud rates** - 115200, 460800, 921600
 
-### Display Issues
-1. Verify pin connections match platformio.ini configuration
-2. Check touch calibration values in receiver code
-3. Monitor serial output for debugging information
+### Display Issues  
+1. **Check wiring** - Verify ST7789 connections
+2. **Touch calibration** - May need adjustment for specific display
+3. **Orientation** - Currently set to landscape (rotation 1)
 
-### Communication Issues
-1. Ensure both devices use same WiFi channel (default: 1)
-2. Check MAC addresses in transmitter code
-3. Verify ESP-NOW initialization in serial monitor
+### ESP-NOW Issues
+1. **Check MAC addresses** - Verify transmitter/receiver pairing
+2. **Distance** - Keep devices within range during testing
+3. **Power** - Ensure both devices have stable power supply
 
-## License
+## 🔄 Development Workflow
 
-This project is open source and available under the MIT License.
+1. **Develop in Codespace** - Use browser-based VS Code
+2. **PlatformIO Remote** - Build in cloud, upload to local ESP32
+3. **Serial Monitoring** - Debug via PlatformIO monitor
+4. **Iterative Testing** - Use minimal test for upload verification
+
+## 📖 Technical Details
+
+- **LVGL Version**: 8.4.0 with optimized configuration
+- **Display Driver**: TFT_eSPI with ST7789 support  
+- **Color Depth**: RGB565 (16-bit) for optimal performance
+- **Touch Support**: Resistive touch with calibration
+- **Wireless**: ESP-NOW for low-latency communication
+- **Build System**: PlatformIO with ESP32 Arduino framework
+
+---
+
+## 🎯 Project Goals
+
+This project demonstrates:
+- Professional LVGL interface development
+- ESP-NOW wireless communication
+- Remote development workflow (Codespace → local ESP32)
+- Automotive-style dashboard design
+- Real-time sensor monitoring and display
