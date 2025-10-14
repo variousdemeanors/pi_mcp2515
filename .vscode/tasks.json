@@ -1,0 +1,184 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "PIO: Build transmitter",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-e",
+                "esp32dev-transmitter"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "PIO: Build receiver",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-e",
+                "esp32dev-receiver"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "PIO: Build minimal test",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-e",
+                "minimal-test"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "PIO: Upload transmitter",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-t",
+                "upload",
+                "-e",
+                "esp32dev-transmitter"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "PIO: Upload receiver",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-t",
+                "upload",
+                "-e",
+                "esp32dev-receiver"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "PIO: Upload minimal test",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "run",
+                "-t",
+                "upload",
+                "-e",
+                "minimal-test"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "PIO: Monitor",
+            "type": "shell",
+            "command": "pio",
+            "args": [
+                "device",
+                "monitor",
+                "-b",
+                "115200"
+            ],
+            "isBackground": true,
+            "group": "build"
+        },
+        {
+            "label": "Direct: Upload minimal test",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-m",
+                "esptool",
+                "--chip",
+                "esp32",
+                "--port",
+                "COM10",
+                "--baud",
+                "921600",
+                "--before",
+                "default_reset",
+                "--after",
+                "hard_reset",
+                "write_flash",
+                "-z",
+                "--flash_mode",
+                "dio",
+                "--flash_freq",
+                "40m",
+                "--flash_size",
+                "4MB",
+                "0x1000",
+                "firmware_builds/bootloader.bin",
+                "0x8000",
+                "firmware_builds/partitions.bin",
+                "0xe000",
+                "firmware_builds/boot_app0.bin",
+                "0x10000",
+                "firmware_builds/minimal_test.bin"
+            ],
+            "group": "build",
+            "detail": "🚨 BLINKING test - Fresh repo version! 🚨",
+            "problemMatcher": []
+        },
+        {
+            "label": "Direct: Upload LVGL receiver",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-m",
+                "esptool",
+                "--chip",
+                "esp32",
+                "--port",
+                "COM10",
+                "--baud",
+                "921600",
+                "--before",
+                "default_reset",
+                "--after",
+                "hard_reset",
+                "write_flash",
+                "-z",
+                "--flash_mode",
+                "dio",
+                "--flash_freq",
+                "40m",
+                "--flash_size",
+                "4MB",
+                "0x1000",
+                "firmware_builds/bootloader.bin",
+                "0x8000",
+                "firmware_builds/partitions.bin",
+                "0xe000",
+                "firmware_builds/boot_app0.bin",
+                "0x10000",
+                "firmware_builds/lvgl_receiver.bin"
+            ],
+            "group": "build",
+            "detail": "🚗 Full LVGL automotive dashboard - Clean repo! 🚗",
+            "problemMatcher": []
+        }
+    ]
+}
