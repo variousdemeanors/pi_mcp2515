@@ -2,31 +2,15 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build - Build project",
+      "label": "ESP-IDF: Build",
       "type": "shell",
-      "command": "${config:idf.pythonBinPath} ${config:idf.espIdfPath}/tools/idf.py build",
-      "windows": {
-        "command": "${config:idf.pythonBinPathWin} ${config:idf.espIdfPathWin}\\tools\\idf.py build",
-        "options": {
-          "env": {
-            "PATH": "${env:PATH};${config:idf.customExtraPaths}"
-          }
-        }
-      },
-      "options": {
-        "env": {
-          "PATH": "${env:PATH}:${config:idf.customExtraPaths}"
-        }
-      },
+      "command": "idf.py build",
       "problemMatcher": [
         {
           "owner": "cpp",
-          "fileLocation": [
-            "autoDetect",
-            "${workspaceFolder}"
-          ],
+          "fileLocation": "absolute",
           "pattern": {
-            "regexp": "^(.*?):(\\d+):(\\d*):?\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+            "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
             "file": 1,
             "line": 2,
             "column": 3,
@@ -38,6 +22,85 @@
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "ESP-IDF: Clean Build",
+      "type": "shell",
+      "command": "idf.py fullclean && idf.py build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "ESP-IDF: Flash",
+      "type": "shell",
+      "command": "idf.py flash",
+      "problemMatcher": [],
+      "dependsOn": ["ESP-IDF: Build"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "ESP-IDF: Monitor",
+      "type": "shell",
+      "command": "idf.py monitor",
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "ESP-IDF: Flash and Monitor",
+      "type": "shell",
+      "command": "idf.py flash monitor",
+      "problemMatcher": [],
+      "dependsOn": ["ESP-IDF: Build"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "ESP-IDF: Menuconfig",
+      "type": "shell",
+      "command": "idf.py menuconfig",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Deploy to Raspberry Pi",
+      "type": "shell",
+      "command": "./deploy_to_pi.sh ${input:piHost} ${input:espPort}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      }
+    },
+    {
+      "label": "Deploy to Pi (Quick)",
+      "type": "shell",
+      "command": "./deploy_to_pi.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
       }
     },
     {
@@ -254,6 +317,20 @@
           }
         }
       }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "piHost",
+      "type": "promptString",
+      "description": "Raspberry Pi hostname or IP address",
+      "default": "raspberrypi.local"
+    },
+    {
+      "id": "espPort",
+      "type": "promptString",
+      "description": "ESP32 serial port on Raspberry Pi",
+      "default": "/dev/ttyUSB0"
     }
   ]
 }

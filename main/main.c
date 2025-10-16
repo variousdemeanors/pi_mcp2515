@@ -3,7 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
-#include "esp_spi_flash.h"
+#include "esp_flash.h"  // Updated from deprecated esp_spi_flash.h
 
 #include "lvgl.h"
 #include "lv_port_disp.h"

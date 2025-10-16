@@ -86,8 +86,7 @@ endif()
 
 idf_component_register(SRCS ${SOURCES}
                        INCLUDE_DIRS ${LVGL_INCLUDE_DIRS}
-                       REQUIRES driver
-                       REQUIRES lvgl)
+                       REQUIRES driver esp_driver_spi esp_driver_i2c esp_driver_gpio esp_driver_ledc lvgl)
 
 target_compile_definitions(${COMPONENT_LIB} PUBLIC "-DLV_LVGL_H_INCLUDE_SIMPLE")
 

@@ -18,5 +18,6 @@
     "files.associations": {
         "lv_port_disp_template.h": "c",
         "gpio_sig_map.h": "c"
-    }
+    },
+    "idf.pythonInstallPath": "/opt/esp/python_env/idf5.3_py3.10_env/bin/python"
 }
