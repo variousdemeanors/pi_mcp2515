@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/workspaces/pi_mcp2515/build/CMakeFiles/bootloader"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/CMakeFiles/bootloader.rule"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/CMakeFiles/bootloader-complete.rule"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule"
+		},
+		{
+			"file" : "/workspaces/pi_mcp2515/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"bootloader"
+		],
+		"name" : "bootloader"
+	}
+}
