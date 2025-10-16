@@ -1,184 +1,259 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "PIO: Build transmitter",
-            "type": "shell",
-            "command": "pio",
-            "args": [
-                "run",
-                "-e",
-                "esp32dev-transmitter"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "PIO: Build receiver",
-            "type": "shell",
-            "command": "pio",
-            "args": [
-                "run",
-                "-e",
-                "esp32dev-receiver"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "PIO: Build minimal test",
-            "type": "shell",
-            "command": "pio",
-            "args": [
-                "run",
-                "-e",
-                "minimal-test"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "PIO: Upload transmitter",
-            "type": "shell",
-            "command": "pio",
-            "args": [
-                "run",
-                "-t",
-                "upload",
-                "-e",
-                "esp32dev-transmitter"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "PIO: Upload receiver",
-            "type": "shell",
-            "command": "pio",
-            "args": [
-                "run",
-                "-t",
-                "upload",
-                "-e",
-                "esp32dev-receiver"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "PIO: Upload minimal test",
-            "type": "shell",
-            "command": "pio",
-            "args": [
-                "run",
-                "-t",
-                "upload",
-                "-e",
-                "minimal-test"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "PIO: Monitor",
-            "type": "shell",
-            "command": "pio",
-            "args": [
-                "device",
-                "monitor",
-                "-b",
-                "115200"
-            ],
-            "isBackground": true,
-            "group": "build"
-        },
-        {
-            "label": "Direct: Upload minimal test",
-            "type": "shell",
-            "command": "python",
-            "args": [
-                "-m",
-                "esptool",
-                "--chip",
-                "esp32",
-                "--port",
-                "COM10",
-                "--baud",
-                "921600",
-                "--before",
-                "default_reset",
-                "--after",
-                "hard_reset",
-                "write_flash",
-                "-z",
-                "--flash_mode",
-                "dio",
-                "--flash_freq",
-                "40m",
-                "--flash_size",
-                "4MB",
-                "0x1000",
-                "firmware_builds/bootloader.bin",
-                "0x8000",
-                "firmware_builds/partitions.bin",
-                "0xe000",
-                "firmware_builds/boot_app0.bin",
-                "0x10000",
-                "firmware_builds/minimal_test.bin"
-            ],
-            "group": "build",
-            "detail": "🚨 BLINKING test - Fresh repo version! 🚨",
-            "problemMatcher": []
-        },
-        {
-            "label": "Direct: Upload LVGL receiver",
-            "type": "shell",
-            "command": "python",
-            "args": [
-                "-m",
-                "esptool",
-                "--chip",
-                "esp32",
-                "--port",
-                "COM10",
-                "--baud",
-                "921600",
-                "--before",
-                "default_reset",
-                "--after",
-                "hard_reset",
-                "write_flash",
-                "-z",
-                "--flash_mode",
-                "dio",
-                "--flash_freq",
-                "40m",
-                "--flash_size",
-                "4MB",
-                "0x1000",
-                "firmware_builds/bootloader.bin",
-                "0x8000",
-                "firmware_builds/partitions.bin",
-                "0xe000",
-                "firmware_builds/boot_app0.bin",
-                "0x10000",
-                "firmware_builds/lvgl_receiver.bin"
-            ],
-            "group": "build",
-            "detail": "🚗 Full LVGL automotive dashboard - Clean repo! 🚗",
-            "problemMatcher": []
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build - Build project",
+      "type": "shell",
+      "command": "${config:idf.pythonBinPath} ${config:idf.espIdfPath}/tools/idf.py build",
+      "windows": {
+        "command": "${config:idf.pythonBinPathWin} ${config:idf.espIdfPathWin}\\tools\\idf.py build",
+        "options": {
+          "env": {
+            "PATH": "${env:PATH};${config:idf.customExtraPaths}"
+          }
         }
-    ]
+      },
+      "options": {
+        "env": {
+          "PATH": "${env:PATH}:${config:idf.customExtraPaths}"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "cpp",
+          "fileLocation": [
+            "autoDetect",
+            "${workspaceFolder}"
+          ],
+          "pattern": {
+            "regexp": "^(.*?):(\\d+):(\\d*):?\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "message": 5
+          }
+        }
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Set ESP-IDF Target",
+      "type": "shell",
+      "command": "${command:espIdf.setTarget}",
+      "problemMatcher": {
+        "owner": "cpp",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^(.*?):(\\d+):(\\d*):?\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    {
+      "label": "Clean - Clean the project",
+      "type": "shell",
+      "command": "${config:idf.pythonBinPath} ${config:idf.espIdfPath}/tools/idf.py fullclean",
+      "windows": {
+        "command": "${config:idf.pythonBinPathWin} ${config:idf.espIdfPathWin}\\tools\\idf.py fullclean",
+        "options": {
+          "env": {
+            "PATH": "${env:PATH};${config:idf.customExtraPaths}"
+          }
+        }
+      },
+      "options": {
+        "env": {
+          "PATH": "${env:PATH}:${config:idf.customExtraPaths}"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "cpp",
+          "fileLocation": [
+            "autoDetect",
+            "${workspaceFolder}"
+          ],
+          "pattern": {
+            "regexp": "^(.*?):(\\d+):(\\d*):?\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
+      "label": "Flash - Flash the device",
+      "type": "shell",
+      "command": "${config:idf.pythonBinPath} ${config:idf.espIdfPath}/tools/idf.py -p ${config:idf.port} -b ${config:idf.flashBaudRate} flash",
+      "windows": {
+        "command": "${config:idf.pythonBinPathWin} ${config:idf.espIdfPathWin}\\tools\\idf.py flash -p ${config:idf.portWin} -b ${config:idf.flashBaudRate}",
+        "options": {
+          "env": {
+            "PATH": "${env:PATH};${config:idf.customExtraPaths}"
+          }
+        }
+      },
+      "options": {
+        "env": {
+          "PATH": "${env:PATH}:${config:idf.customExtraPaths}"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "cpp",
+          "fileLocation": [
+            "autoDetect",
+            "${workspaceFolder}"
+          ],
+          "pattern": {
+            "regexp": "^(.*?):(\\d+):(\\d*):?\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "message": 5
+          }
+        }
+      ]
+    },
+    {
+      "label": "Monitor: Start the monitor",
+      "type": "shell",
+      "command": "${config:idf.pythonBinPath} ${config:idf.espIdfPath}/tools/idf.py -p ${config:idf.port} monitor",
+      "windows": {
+        "command": "${config:idf.pythonBinPathWin} ${config:idf.espIdfPathWin}\\tools\\idf.py -p ${config:idf.portWin} monitor",
+        "options": {
+          "env": {
+            "PATH": "${env:PATH};${config:idf.customExtraPaths}"
+          }
+        }
+      },
+      "options": {
+        "env": {
+          "PATH": "${env:PATH}:${config:idf.customExtraPaths}"
+        }
+      },
+      "problemMatcher": [
+        {
+          "owner": "cpp",
+          "fileLocation": [
+            "autoDetect",
+            "${workspaceFolder}"
+          ],
+          "pattern": {
+            "regexp": "^(.*?):(\\d+):(\\d*):?\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "message": 5
+          }
+        }
+      ],
+      "dependsOn": "Flash - Flash the device"
+    },
+    {
+      "label": "OpenOCD: Start openOCD",
+      "type": "shell",
+      "presentation": {
+        "echo": true,
+        "reveal": "never",
+        "focus": false,
+        "panel": "new"
+      },
+      "command": "openocd -s ${command:espIdf.getOpenOcdScriptValue} ${command:espIdf.getOpenOcdConfigs}",
+      "windows": {
+        "command": "openocd.exe -s ${command:espIdf.getOpenOcdScriptValue} ${command:espIdf.getOpenOcdConfigs}",
+        "options": {
+          "env": {
+            "PATH": "${env:PATH};${config:idf.customExtraPaths}"
+          }
+        }
+      },
+      "options": {
+        "env": {
+          "PATH": "${env:PATH}:${config:idf.customExtraPaths}"
+        }
+      },
+      "problemMatcher": {
+        "owner": "cpp",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^(.*?):(\\d+):(\\d*):?\\s+(?:fatal\\s+)?(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    {
+      "label": "adapter",
+      "type": "shell",
+      "command": "${config:idf.pythonBinPath}",
+      "isBackground": true,
+      "options": {
+        "env": {
+          "PATH": "${env:PATH}:${config:idf.customExtraPaths}",
+          "PYTHONPATH": "${command:espIdf.getExtensionPath}/esp_debug_adapter/debug_adapter"
+        }
+      },
+      "problemMatcher": {
+        "background": {
+          "beginsPattern": "\bDEBUG_ADAPTER_STARTED\b",
+          "endsPattern": "DEBUG_ADAPTER_READY2CONNECT",
+          "activeOnStart": true
+        },
+        "pattern": {
+          "regexp": "(\\d+)-(\\d+)-(\\d+)\\s(\\d+):(\\d+):(\\d+),(\\d+)\\s-(.+)\\s(ERROR)",
+          "file": 8,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 9
+        }
+      },
+      "args": [
+        "${command:espIdf.getExtensionPath}/esp_debug_adapter/debug_adapter_main.py",
+        "-e",
+        "${workspaceFolder}/build/${command:espIdf.getProjectName}.elf",
+        "-s",
+        "$OPENOCD_SCRIPTS",
+        "-dn",
+        "esp32",
+        "-om",
+        "connect_to_instance",
+        "-t",
+        "xtensa-esp32-elf-"
+
+      ],
+      "windows": {
+        "command": "${config:idf.pythonBinPathWin}",
+        "options": {
+          "env": {
+            "PATH": "${env:PATH};${config:idf.customExtraPaths}",
+            "PYTHONPATH": "${command:espIdf.getExtensionPath}/esp_debug_adapter/debug_adapter"
+          }
+        }
+      }
+    }
+  ]
 }
